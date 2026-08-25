@@ -31,6 +31,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: corepack enable
       - run: corepack pnpm install --frozen-lockfile
+      - name: Verify the version is single-sourced
+        run: node scripts/sync-version.mjs --check
       - run: cargo build --release --locked
       - name: Build platform VSIX
         shell: bash
@@ -38,7 +40,7 @@ jobs:
           cd extension
           corepack pnpm build
           node scripts/stage-companion.mjs
-          corepack pnpm exec vsce package --no-dependencies --allow-missing-repository --target "${{ matrix.target }}" --out "agent-codewalk-${{ matrix.target }}.vsix"
+          corepack pnpm exec vsce package --no-dependencies --target "${{ matrix.target }}" --out "agent-codewalk-${{ matrix.target }}.vsix"
       - uses: actions/upload-artifact@v4
         with:
           name: agent-codewalk-${{ matrix.target }}
@@ -67,3 +69,27 @@ jobs:
           generate_release_notes: true
           files: artifacts/*
 
+  marketplace:
+    needs: package
+    runs-on: ubuntu-latest
+    # A fork or a repository without publishing tokens still gets the GitHub release.
+    if: ${{ github.repository_owner == 'agent-codewalk' }}
+    env:
+      VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - run: corepack enable
+      - name: Publish to the VS Code Marketplace
+        if: ${{ env.VSCE_PAT != '' }}
+        run: corepack pnpm dlx @vscode/vsce publish --packagePath artifacts/*.vsix
+      - name: Publish to Open VSX
+        if: ${{ env.OVSX_PAT != '' }}
+        run: corepack pnpm dlx ovsx publish --packagePath artifacts/*.vsix

@@ -19,6 +19,8 @@ jobs:
           cache: pnpm
       - run: corepack enable
       - run: corepack pnpm install --frozen-lockfile
+      - name: Verify the version is single-sourced
+        run: node scripts/sync-version.mjs --check
       - run: corepack pnpm --filter agent-codewalk check
       - run: corepack pnpm --filter agent-codewalk test
       - run: corepack pnpm audit --prod --audit-level high
@@ -41,6 +43,19 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
       - run: cargo build --release
+
+  rust-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      # The floor starts conservative because it was introduced without a recorded
+      # baseline. Raise it to just under the first reported figure.
+      - name: Measure companion coverage
+        run: cargo llvm-cov --workspace --summary-only --fail-under-lines 80
 
   dependency-audit:
     runs-on: ubuntu-latest
