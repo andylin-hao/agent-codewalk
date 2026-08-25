@@ -1,7 +1,7 @@
 {
   "name": "agent-codewalk",
-  "displayName": "Agent CodeWalk",
-  "description": "Step through code changes made by Codex, Claude Code, and OpenCode.",
+  "displayName": "%extension.displayName%",
+  "description": "%extension.description%",
   "version": "0.1.1",
   "publisher": "agent-codewalk",
   "license": "MIT",
@@ -17,18 +17,42 @@
   "engines": {
     "vscode": "^1.96.0"
   },
-  "extensionKind": ["workspace"],
-  "categories": ["Other", "Visualization"],
-  "keywords": ["agent", "codex", "claude", "opencode", "walkthrough", "diff"],
+  "extensionKind": [
+    "workspace"
+  ],
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "keywords": [
+    "agent",
+    "codex",
+    "claude",
+    "opencode",
+    "walkthrough",
+    "diff"
+  ],
   "main": "./dist/extension.cjs",
-  "activationEvents": ["onStartupFinished"],
-  "files": ["bin", "dist", "media", "resources", "README.md", "CHANGELOG.md", "LICENSE"],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "files": [
+    "bin",
+    "dist",
+    "media",
+    "resources",
+    "package.nls.json",
+    "package.nls.zh-cn.json",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
   "contributes": {
     "viewsContainers": {
       "activitybar": [
         {
           "id": "agentCodeWalk",
-          "title": "Agent CodeWalk",
+          "title": "%view.container.title%",
           "icon": "media/icon.svg"
         }
       ]
@@ -38,83 +62,83 @@
         {
           "type": "webview",
           "id": "agentCodeWalk.walkthrough",
-          "name": "Walkthrough"
+          "name": "%view.walkthrough.name%"
         }
       ]
     },
     "viewsWelcome": [
       {
         "view": "agentCodeWalk.walkthrough",
-        "contents": "Agent CodeWalk plays back the changes an agent just made.\n[Set up agent integrations](command:agentCodeWalk.setup)"
+        "contents": "%view.welcome%"
       }
     ],
     "commands": [
       {
         "command": "agentCodeWalk.setup",
-        "title": "Setup Agent Integrations",
-        "category": "Agent CodeWalk"
+        "title": "%command.setup.title%",
+        "category": "%command.category%"
       },
       {
         "command": "agentCodeWalk.openLatest",
-        "title": "Open Latest Walkthrough",
-        "category": "Agent CodeWalk",
+        "title": "%command.openLatest.title%",
+        "category": "%command.category%",
         "icon": "$(play)"
       },
       {
         "command": "agentCodeWalk.previous",
-        "title": "Previous Step",
-        "category": "Agent CodeWalk",
+        "title": "%command.previous.title%",
+        "category": "%command.category%",
         "icon": "$(arrow-left)"
       },
       {
         "command": "agentCodeWalk.next",
-        "title": "Next Step",
-        "category": "Agent CodeWalk",
+        "title": "%command.next.title%",
+        "category": "%command.category%",
         "icon": "$(arrow-right)"
       },
       {
         "command": "agentCodeWalk.switchMode",
-        "title": "Switch Between File and Execution-Flow Order",
-        "category": "Agent CodeWalk",
+        "title": "%command.switchMode.title%",
+        "category": "%command.category%",
         "icon": "$(list-ordered)"
       },
       {
         "command": "agentCodeWalk.jumpToStep",
-        "title": "Jump to Step",
-        "category": "Agent CodeWalk",
+        "title": "%command.jumpToStep.title%",
+        "category": "%command.category%",
         "icon": "$(search)"
       },
       {
         "command": "agentCodeWalk.showDiff",
-        "title": "Compare Current Step With Before",
-        "category": "Agent CodeWalk",
+        "title": "%command.showDiff.title%",
+        "category": "%command.category%",
         "icon": "$(diff)"
       },
       {
         "command": "agentCodeWalk.diagnose",
-        "title": "Diagnose Installation",
-        "category": "Agent CodeWalk"
+        "title": "%command.diagnose.title%",
+        "category": "%command.category%"
       },
       {
         "command": "agentCodeWalk.delete",
-        "title": "Delete Walkthrough",
-        "category": "Agent CodeWalk",
+        "title": "%command.delete.title%",
+        "category": "%command.category%",
         "icon": "$(trash)"
       },
       {
         "command": "agentCodeWalk.uninstall",
-        "title": "Remove Agent Integrations",
-        "category": "Agent CodeWalk"
+        "title": "%command.uninstall.title%",
+        "category": "%command.category%"
       },
       {
         "command": "agentCodeWalk.goToStep",
-        "title": "Go to Walkthrough Step",
-        "category": "Agent CodeWalk"
+        "title": "%command.goToStep.title%",
+        "category": "%command.category%"
       },
       {
         "command": "agentCodeWalk.showStepDiff",
-        "title": "Compare Walkthrough Step With Before",
-        "category": "Agent CodeWalk"
+        "title": "%command.showStepDiff.title%",
+        "category": "%command.category%"
       }
     ],
     "keybindings": [
@@ -142,14 +166,38 @@
     ],
     "menus": {
       "commandPalette": [
-        { "command": "agentCodeWalk.goToStep", "when": "false" },
-        { "command": "agentCodeWalk.showStepDiff", "when": "false" },
-        { "command": "agentCodeWalk.next", "when": "agentCodeWalk.hasSession" },
-        { "command": "agentCodeWalk.previous", "when": "agentCodeWalk.hasSession" },
-        { "command": "agentCodeWalk.switchMode", "when": "agentCodeWalk.hasSession" },
-        { "command": "agentCodeWalk.jumpToStep", "when": "agentCodeWalk.hasSession" },
-        { "command": "agentCodeWalk.showDiff", "when": "agentCodeWalk.hasSession" },
-        { "command": "agentCodeWalk.delete", "when": "agentCodeWalk.hasSession" }
+        {
+          "command": "agentCodeWalk.goToStep",
+          "when": "false"
+        },
+        {
+          "command": "agentCodeWalk.showStepDiff",
+          "when": "false"
+        },
+        {
+          "command": "agentCodeWalk.next",
+          "when": "agentCodeWalk.hasSession"
+        },
+        {
+          "command": "agentCodeWalk.previous",
+          "when": "agentCodeWalk.hasSession"
+        },
+        {
+          "command": "agentCodeWalk.switchMode",
+          "when": "agentCodeWalk.hasSession"
+        },
+        {
+          "command": "agentCodeWalk.jumpToStep",
+          "when": "agentCodeWalk.hasSession"
+        },
+        {
+          "command": "agentCodeWalk.showDiff",
+          "when": "agentCodeWalk.hasSession"
+        },
+        {
+          "command": "agentCodeWalk.delete",
+          "when": "agentCodeWalk.hasSession"
+        }
       ],
       "view/title": [
         {
@@ -185,29 +233,29 @@
       ]
     },
     "configuration": {
-      "title": "Agent CodeWalk",
+      "title": "%configuration.title%",
       "properties": {
         "agentCodeWalk.storagePath": {
           "type": "string",
           "default": "",
-          "description": "Override the local Agent CodeWalk data directory. AGENT_CODEWALK_HOME takes precedence."
+          "description": "%configuration.storagePath.description%"
         },
         "agentCodeWalk.companionPath": {
           "type": "string",
           "default": "",
-          "description": "Override the bundled MCP companion executable used during integration setup."
+          "description": "%configuration.companionPath.description%"
         },
         "agentCodeWalk.refreshInterval": {
           "type": "number",
           "default": 4000,
           "minimum": 500,
           "maximum": 30000,
-          "description": "Fallback poll interval in milliseconds. New walkthroughs are normally detected by watching the data directory; this poll covers filesystems where watching does not work."
+          "description": "%configuration.refreshInterval.description%"
         },
         "agentCodeWalk.notifyOnPublish": {
           "type": "boolean",
           "default": true,
-          "description": "Show a notification when an agent publishes a new walkthrough."
+          "description": "%configuration.notifyOnPublish.description%"
         }
       }
     }

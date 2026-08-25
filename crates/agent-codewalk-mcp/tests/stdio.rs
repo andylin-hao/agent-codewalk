@@ -43,7 +43,7 @@ impl Companion {
         }
     }
 
-    fn request(&mut self, method: &str, params: Value) -> Value {
+    fn request(&mut self, method: &str, params: &Value) -> Value {
         self.next_id += 1;
         let message = json!({
             "jsonrpc": "2.0",
@@ -60,8 +60,11 @@ impl Companion {
         serde_json::from_str(&line).expect("the answer must be JSON")
     }
 
-    fn call_tool(&mut self, name: &str, arguments: Value) -> Value {
-        let response = self.request("tools/call", json!({ "name": name, "arguments": arguments }));
+    fn call_tool(&mut self, name: &str, arguments: &Value) -> Value {
+        let response = self.request(
+            "tools/call",
+            &json!({ "name": name, "arguments": arguments }),
+        );
         let result = response
             .get("result")
             .unwrap_or_else(|| panic!("{name} failed: {response}"))
@@ -91,13 +94,13 @@ fn publishes_a_session_an_editor_can_load_when_started_in_a_subdirectory() {
 
     let mut companion = Companion::start(&nested, state.path());
 
-    let initialize = companion.request("initialize", json!({}));
+    let initialize = companion.request("initialize", &json!({}));
     assert_eq!(
         initialize["result"]["serverInfo"]["name"].as_str(),
         Some("agent-codewalk")
     );
 
-    let tools = companion.request("tools/list", json!({}));
+    let tools = companion.request("tools/list", &json!({}));
     let names: Vec<&str> = tools["result"]["tools"]
         .as_array()
         .expect("tools must be listed")
@@ -116,7 +119,7 @@ fn publishes_a_session_an_editor_can_load_when_started_in_a_subdirectory() {
 
     let begin = companion.call_tool(
         "begin_task",
-        json!({ "goal": "Change the default value", "agent": "codex" }),
+        &json!({ "goal": "Change the default value", "agent": "codex" }),
     );
     assert_eq!(begin["degradedBaseline"].as_bool(), Some(false));
     assert_eq!(
@@ -134,7 +137,7 @@ fn publishes_a_session_an_editor_can_load_when_started_in_a_subdirectory() {
 
     let published = companion.call_tool(
         "publish_walkthrough",
-        json!({
+        &json!({
             "taskId": task_id,
             "title": "Change the default",
             "summary": "The helper returns a new default.",
@@ -170,7 +173,7 @@ fn publishes_a_session_an_editor_can_load_when_started_in_a_subdirectory() {
     assert_eq!(walkthrough.steps[0].previous_text.as_deref(), Some("    1"));
     assert!(walkthrough.uncovered_hunks.is_empty());
 
-    let status = companion.call_tool("get_status", json!({ "taskId": task_id }));
+    let status = companion.call_tool("get_status", &json!({ "taskId": task_id }));
     assert_eq!(status["exists"].as_bool(), Some(false));
 
     companion.shutdown();
@@ -183,7 +186,7 @@ fn reports_an_incomplete_walkthrough_as_a_tool_error() {
     initialize_repository(workspace.path());
     let mut companion = Companion::start(workspace.path(), state.path());
 
-    let begin = companion.call_tool("begin_task", json!({ "goal": "Change two lines" }));
+    let begin = companion.call_tool("begin_task", &json!({ "goal": "Change two lines" }));
     let task_id = begin["taskId"].as_str().unwrap().to_owned();
     fs::write(
         workspace.path().join("src/lib.rs"),
@@ -193,7 +196,7 @@ fn reports_an_incomplete_walkthrough_as_a_tool_error() {
 
     let response = companion.request(
         "tools/call",
-        json!({
+        &json!({
             "name": "publish_walkthrough",
             "arguments": {
                 "taskId": task_id,
@@ -225,10 +228,10 @@ fn rejects_an_unknown_method_without_stopping() {
     initialize_repository(workspace.path());
     let mut companion = Companion::start(workspace.path(), state.path());
 
-    let response = companion.request("does/not/exist", json!({}));
+    let response = companion.request("does/not/exist", &json!({}));
     assert_eq!(response["error"]["code"].as_i64(), Some(-32601));
 
-    let ping = companion.request("ping", json!({}));
+    let ping = companion.request("ping", &json!({}));
     assert!(ping["result"].is_object(), "the server must stay usable");
     companion.shutdown();
 }
@@ -250,7 +253,10 @@ fn initialize_repository(workspace: &Path) {
     .unwrap();
     git(workspace, &["init", "-q"]);
     git(workspace, &["config", "user.name", "Agent CodeWalk Tests"]);
-    git(workspace, &["config", "user.email", "tests@example.invalid"]);
+    git(
+        workspace,
+        &["config", "user.email", "tests@example.invalid"],
+    );
     git(workspace, &["add", "."]);
     git(workspace, &["commit", "-qm", "initial"]);
 }

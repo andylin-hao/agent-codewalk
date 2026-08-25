@@ -13,6 +13,7 @@ import {
   upsertCodexConfiguration,
   upsertJsonProperty,
 } from "./config-edits.js";
+import { probeAgents, type CommandRunner } from "./probe.js";
 import { dataDirectory } from "./storage.js";
 import { withFileTransaction } from "./file-transaction.js";
 
@@ -61,6 +62,7 @@ export class IntegrationInstaller {
     private readonly context: vscode.ExtensionContext,
     private readonly output: vscode.LogOutputChannel,
     private readonly home: string = os.homedir(),
+    private readonly runner?: CommandRunner,
   ) {}
 
   public async setup(): Promise<void> {
@@ -118,6 +120,22 @@ export class IntegrationInstaller {
     }
     for (const skillPath of manifest.skillPaths) {
       this.output.info(`${skillPath}: ${(await isOwnedSkill(skillPath)) ? "owned skill present" : "missing or not owned"}`);
+    }
+    await this.reportAgentVisibility();
+  }
+
+  /**
+   * Asks each agent whether it can see the companion, which a file listing cannot tell.
+   */
+  private async reportAgentVisibility(): Promise<void> {
+    this.output.info("Asking each agent which MCP servers it loads:");
+    for (const result of await probeAgents(this.runner)) {
+      const line = `${result.name}: ${result.detail}`;
+      if (result.status === "registered") {
+        this.output.info(line);
+      } else {
+        this.output.warn(line);
+      }
     }
   }
 

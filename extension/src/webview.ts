@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 
 import * as vscode from "vscode";
 
+import { type Messages, messagesFor } from "./i18n.js";
 import type { ExplanationMode, ViewState } from "./types.js";
 import type { WalkthroughPlayer } from "./player.js";
 
@@ -35,7 +36,7 @@ export class WalkthroughViewProvider implements vscode.WebviewViewProvider, vsco
       enableScripts: true,
       localResourceRoots: [this.extensionUri],
     };
-    view.webview.html = html();
+    view.webview.html = html(messagesFor(vscode.env.language));
     view.webview.onDidReceiveMessage((message: unknown) => void this.handleMessage(message));
     this.update(this.player.getState());
   }
@@ -120,11 +121,30 @@ function hasText<Key extends string>(
   );
 }
 
+/**
+ * Serializes a value for use inside a `<script>` block.
+ *
+ * `JSON.stringify` alone is not enough: it leaves `</script>` intact, which would end the
+ * block early and let the remaining text be parsed as markup.
+ */
+function embedJson(value: unknown): string {
+  return JSON.stringify(value).replaceAll("<", "\\u003c").replaceAll("\u2028", "\\u2028");
+}
+
+/** Escapes text that is interpolated into markup rather than set through the DOM. */
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
 export function nonceValue(): string {
   return randomBytes(24).toString("base64url");
 }
 
-export function html(): string {
+export function html(messages: Messages = messagesFor("en")): string {
   const nonce = nonceValue();
   const csp = [
     "default-src 'none'",
@@ -141,37 +161,34 @@ export function html(): string {
 </head>
 <body>
   <div id="empty" class="onboarding">
-    <h2>No walkthrough yet</h2>
-    <p class="muted">Agent CodeWalk plays back the changes an agent just made, one highlighted block at a time.</p>
+    <h2>${escapeHtml(messages.emptyTitle)}</h2>
+    <p class="muted">${escapeHtml(messages.emptyLead)}</p>
     <ol class="steps-help">
-      <li>Run <strong>Setup Agent Integrations</strong> once.</li>
-      <li>Restart your agent session so it loads the tools.</li>
-      <li>Ask Codex, Claude Code, or OpenCode to change code as usual.</li>
-      <li>Come back here when it reports that it is done.</li>
+      ${messages.emptySteps.map((entry) => `<li>${entry}</li>`).join("\n      ")}
     </ol>
-    <button id="setup-primary" class="primary" type="button">Set up agent integrations</button>
+    <button id="setup-primary" class="primary" type="button">${escapeHtml(messages.setupPrimary)}</button>
   </div>
 
   <main id="content" hidden>
     <header class="header">
       <div class="header-row">
         <h1 id="title"></h1>
-        <button id="refresh" class="icon" type="button" title="Reload published walkthroughs" aria-label="Reload">&#x21bb;</button>
+        <button id="refresh" class="icon" type="button" title="${escapeHtml(messages.reload)}" aria-label="${escapeHtml(messages.reload)}">&#x21bb;</button>
       </div>
       <p id="summary" class="muted"></p>
-      <div class="progress" role="group" aria-label="Progress">
+      <div class="progress" role="group" aria-label="${escapeHtml(messages.progressLabel)}">
         <div class="track"><div id="bar" class="bar"></div></div>
         <span id="progress-label" class="progress-label"></span>
       </div>
       <div class="controls">
-        <button id="previous" type="button"><span aria-hidden="true">&#x2190;</span> Previous</button>
-        <button id="next" class="primary" type="button">Next <span aria-hidden="true">&#x2192;</span></button>
+        <button id="previous" type="button"><span aria-hidden="true">&#x2190;</span> ${escapeHtml(messages.previous)}</button>
+        <button id="next" class="primary" type="button">${escapeHtml(messages.next)} <span aria-hidden="true">&#x2192;</span></button>
       </div>
-      <div class="segmented" role="radiogroup" aria-label="Step order">
-        <button id="mode-file" type="button" role="radio">By file</button>
-        <button id="mode-flow" type="button" role="radio">Execution flow</button>
+      <div class="segmented" role="radiogroup" aria-label="${escapeHtml(messages.allSteps)}">
+        <button id="mode-file" type="button" role="radio">${escapeHtml(messages.orderByFile)}</button>
+        <button id="mode-flow" type="button" role="radio">${escapeHtml(messages.orderByFlow)}</button>
       </div>
-      <p class="hint muted">Alt+[ and Alt+] move between steps.</p>
+      <p class="hint muted">${escapeHtml(messages.keyboardHint)}</p>
     </header>
 
     <section class="card" aria-labelledby="step-title">
@@ -183,28 +200,29 @@ export function html(): string {
       <button id="path" class="path" type="button" title="Open this location"></button>
       <p id="explanation"></p>
       <div class="card-actions">
-        <button id="diff" type="button" hidden>Compare with before</button>
+        <button id="diff" type="button" hidden>${escapeHtml(messages.compare)}</button>
       </div>
       <div id="flow-after" class="flow-after muted" hidden></div>
     </section>
 
     <div id="notices"></div>
 
-    <section class="list" aria-label="All steps">
-      <h3 class="section-title">All steps</h3>
+    <section class="list" aria-label="${escapeHtml(messages.allSteps)}">
+      <h3 class="section-title">${escapeHtml(messages.allSteps)}</h3>
       <div id="steps"></div>
     </section>
 
     <footer class="footer">
-      <label class="field" for="sessions">Walkthrough</label>
-      <select id="sessions" aria-label="Walkthrough session"></select>
+      <label class="field" for="sessions">${escapeHtml(messages.sessionLabel)}</label>
+      <select id="sessions" aria-label="${escapeHtml(messages.sessionLabel)}"></select>
       <div class="footer-actions">
-        <button id="setup" type="button">Integrations</button>
-        <button id="delete" type="button">Delete</button>
+        <button id="setup" type="button">${escapeHtml(messages.integrations)}</button>
+        <button id="delete" type="button">${escapeHtml(messages.delete)}</button>
       </div>
     </footer>
   </main>
-  <script nonce="${nonce}">${script()}</script>
+  <script nonce="${nonce}">const MESSAGES = ${embedJson(messages)};
+${script()}</script>
 </body>
 </html>`;
 }
@@ -338,6 +356,13 @@ function script(): string {
     });
 
     function text(id, value) { byId(id).textContent = value === undefined || value === null ? '' : value; }
+    function format(template) {
+      const values = Array.prototype.slice.call(arguments, 1);
+      return template.replace(/{(\\d+)}/g, (match, index) => {
+        const value = values[Number(index)];
+        return value === undefined ? match : String(value);
+      });
+    }
 
     function render() {
       const hasStep = Boolean(state.step);
@@ -354,7 +379,7 @@ function script(): string {
       text('path', state.step.path + ':' + state.step.anchor.startLine + '-' + state.step.anchor.endLine);
       text('kind', state.step.changeKind);
       byId('kind').className = 'badge ' + state.step.changeKind;
-      text('position', 'Step ' + state.stepNumber + ' of ' + state.stepCount);
+      text('position', format(MESSAGES.stepCounter, state.stepNumber, state.stepCount));
       text('progress-label', state.stepNumber + '/' + state.stepCount);
       byId('bar').style.width = (state.stepCount === 0 ? 0 : (state.stepNumber / state.stepCount) * 100) + '%';
       byId('previous').disabled = state.stepNumber <= 1;
@@ -374,7 +399,7 @@ function script(): string {
       select.replaceChildren.apply(select, state.sessions.map((session) => {
         const option = document.createElement('option');
         option.value = session.id;
-        option.textContent = session.title + '  ·  ' + session.stepCount + ' steps';
+        option.textContent = session.title + '  ·  ' + session.stepCount + ' ' + MESSAGES.stepUnit;
         option.selected = session.id === state.activeSessionId;
         return option;
       }));
@@ -391,7 +416,7 @@ function script(): string {
         const match = state.steps.filter((candidate) => candidate.id === id)[0];
         return match ? match.title : id;
       });
-      container.textContent = 'Runs after: ' + titles.join(', ');
+      container.textContent = MESSAGES.runsAfter + titles.join(', ');
     }
 
     function stepRow(step) {
@@ -457,22 +482,16 @@ function script(): string {
       const container = byId('notices');
       const boxes = [];
       if (state.error) boxes.push(notice(state.error, true));
-      if (state.stale) {
-        boxes.push(notice('This block moved or changed since publication, so nothing is highlighted.', true));
-      }
-      if (state.relocated) {
-        boxes.push(notice('The block moved. Agent CodeWalk found exactly one match and highlighted it.', false));
-      }
-      if (state.degradedBaseline) {
-        boxes.push(notice('Published without a complete baseline, so the scope may include earlier changes.', false));
-      }
+      if (state.stale) boxes.push(notice(MESSAGES.staleNotice, true));
+      if (state.relocated) boxes.push(notice(MESSAGES.relocatedNotice, false));
+      if (state.degradedBaseline) boxes.push(notice(MESSAGES.degradedNotice, false));
       if (state.uncoveredHunks && state.uncoveredHunks.length > 0) {
-        boxes.push(notice('Changes with no explanation:', false, state.uncoveredHunks.map(
+        boxes.push(notice(MESSAGES.uncoveredNotice, false, state.uncoveredHunks.map(
           (hunk) => hunk.path + ':' + hunk.startLine + '-' + hunk.endLine
         )));
       }
       if (state.excludedChanges && state.excludedChanges.length > 0) {
-        boxes.push(notice('Changed but not shown as code:', false, state.excludedChanges.map(
+        boxes.push(notice(MESSAGES.excludedNotice, false, state.excludedChanges.map(
           (change) => change.path + ' — ' + change.reason
         )));
       }

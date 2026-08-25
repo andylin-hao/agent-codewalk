@@ -231,6 +231,7 @@ interface MockState {
   activeTextEditor: MockTextEditor | undefined;
   onDidChangeVisibleEditors: EventEmitter<readonly MockTextEditor[]>;
   decorationCounter: number;
+  language: string;
 }
 
 export const mockState: MockState = createState();
@@ -257,6 +258,7 @@ function createState(): MockState {
     activeTextEditor: undefined,
     onDidChangeVisibleEditors: new EventEmitter<readonly MockTextEditor[]>(),
     decorationCounter: 0,
+    language: "en",
   };
 }
 
@@ -451,6 +453,9 @@ export const commands = {
 };
 
 export const env = {
+  get language(): string {
+    return mockState.language;
+  },
   openExternal: (target: Uri): Promise<boolean> => {
     mockState.executedCommands.push({ command: "openExternal", args: [target] });
     return Promise.resolve(true);

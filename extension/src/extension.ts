@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 
 import { StepCodeLensProvider } from "./codelens.js";
 import { StepDiffProvider } from "./diff.js";
+import { format, messagesFor } from "./i18n.js";
 import { IntegrationInstaller } from "./installer.js";
 import { WalkthroughPlayer } from "./player.js";
 import { SessionStore } from "./storage.js";
@@ -86,7 +87,7 @@ interface StepPick extends vscode.QuickPickItem {
 export async function jumpToStep(player: WalkthroughPlayer): Promise<void> {
   const state = player.getState();
   if (state.steps.length === 0) {
-    await vscode.window.showInformationMessage("There is no active Agent CodeWalk walkthrough.");
+    await vscode.window.showInformationMessage(messagesFor(vscode.env.language).noWalkthrough);
     return;
   }
   const picks: StepPick[] = state.steps.map((step) => ({
@@ -111,12 +112,12 @@ async function announce(title: string, stepCount: number): Promise<void> {
   if (!enabled) {
     return;
   }
-  const open = "Open walkthrough";
+  const messages = messagesFor(vscode.env.language);
   const choice = await vscode.window.showInformationMessage(
-    `Agent CodeWalk: “${title}” is ready with ${String(stepCount)} step(s).`,
-    open,
+    format(messages.publishedNotice, title, stepCount),
+    messages.openWalkthrough,
   );
-  if (choice === open) {
+  if (choice === messages.openWalkthrough) {
     await vscode.commands.executeCommand("agentCodeWalk.openLatest");
   }
 }

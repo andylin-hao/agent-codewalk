@@ -1,6 +1,9 @@
+import { Script } from "node:vm";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
 
+import { messagesFor } from "./i18n.js";
 import type { WalkthroughPlayer } from "./player.js";
 import type { ViewState } from "./types.js";
 import { WalkthroughViewProvider, html, nonceValue, parseMessage } from "./webview.js";
@@ -229,5 +232,34 @@ describe("html", () => {
     const page = html();
     expect(page).toContain("Set up agent integrations");
     expect(page).toContain("Alt+[ and Alt+] move between steps.");
+  });
+
+  it("renders in the editor's language", () => {
+    const page = html(messagesFor("zh-cn"));
+    expect(page).toContain("配置 Agent 集成");
+    expect(page).toContain("按执行流");
+    expect(page).toContain('"stepCounter":"第 {0} 步，共 {1} 步"');
+  });
+
+  it("escapes a message rather than letting it close a tag", () => {
+    const page = html({ ...messagesFor("en"), next: '"><script>alert(1)</script>' });
+    expect(page).not.toContain("<script>alert(1)</script>");
+    expect(page).toContain("&quot;&gt;&lt;script&gt;");
+  });
+
+  it("embeds a client script that parses", () => {
+    const page = html();
+    const script = /<script nonce="[^"]+">([\s\S]*?)<\/script>/u.exec(page)?.[1];
+    expect(script).toBeDefined();
+    // Compiling without running proves the hand-written client script is valid
+    // JavaScript, which nothing else in this suite would catch.
+    expect(() => new Script(script ?? "")).not.toThrow();
+  });
+
+  it("keeps the message table addressable from the client script", () => {
+    const page = html();
+    expect(page).toContain("const MESSAGES = {");
+    expect(page).toContain("MESSAGES.stepCounter");
+    expect(page).toContain("MESSAGES.staleNotice");
   });
 });

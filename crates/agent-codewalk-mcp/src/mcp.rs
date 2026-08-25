@@ -10,6 +10,28 @@ use crate::{
 
 const MCP_PROTOCOL_VERSION: &str = "2025-06-18";
 
+/// The workflow, sent during `initialize`.
+///
+/// The portable skill file carries the same guidance, but not every agent loads skills
+/// from a shared directory. Server instructions reach any MCP client, so this text is
+/// what makes the tools usable rather than merely available.
+const INSTRUCTIONS: &str = "\
+Agent CodeWalk turns a coding task into a walkthrough the user can step through in \
+VS Code or Cursor.
+
+1. Immediately before the first file mutation, call begin_task with the user's concrete \
+goal. Keep the returned taskId.
+2. Make the changes, run the tests, and update the documentation as usual.
+3. After verification, call publish_walkthrough with one step per code block a reader \
+should look at. Use workspace-relative paths and current 1-based line ranges, and \
+explain what changed, why, and what the block now controls.
+4. Every changed text hunk must overlap at least one step. Publication fails and names \
+the uncovered hunks if one does not; add steps and retry.
+5. Call abort_task if the task is canceled or ends without file changes.
+
+Use flowAfter only for genuine runtime or data-flow predecessors; file order is computed \
+for you. Do not write walkthrough files by hand.";
+
 #[derive(Debug, Deserialize)]
 struct ToolCall {
     name: String,
@@ -59,7 +81,7 @@ fn handle_request(service: &CodeWalkService, request: &Value) -> Option<Value> {
                 "title": "Agent CodeWalk",
                 "version": env!("CARGO_PKG_VERSION")
             },
-            "instructions": "Call begin_task before modifying files and publish_walkthrough after verification. Every changed text hunk must have a walkthrough step."
+            "instructions": INSTRUCTIONS
         })),
         "ping" => Ok(json!({})),
         "tools/list" => Ok(json!({ "tools": tool_definitions() })),

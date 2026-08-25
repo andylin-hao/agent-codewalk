@@ -63,6 +63,13 @@ beforeEach(async () => {
       { extensionPath, extensionUri: vscode.Uri.file(extensionPath) } as vscode.ExtensionContext,
       output,
       home,
+      // Diagnostics ask the real agent CLIs which servers they load; the tests answer
+      // for them so that nothing depends on what the machine has installed.
+      (command) =>
+        Promise.resolve({
+          stdout: command === "claude" ? "agent-codewalk: connected" : "no servers",
+          stderr: "",
+        }),
     ),
     cleanup: temporary.cleanup,
   };
@@ -273,5 +280,7 @@ describe("IntegrationInstaller.diagnose", () => {
     expect(lines).toContain("Companion executable: OK");
     expect(lines).toContain("owned skill present");
     expect(lines).toContain("Configured agents: Codex");
+    expect(lines).toContain("Claude Code: claude mcp list lists agent-codewalk");
+    expect(lines).toContain("Codex: codex mcp list did not list agent-codewalk");
   });
 });
