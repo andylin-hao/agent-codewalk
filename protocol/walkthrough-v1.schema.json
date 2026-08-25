@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-codewalk.dev/schema/walkthrough-v1.schema.json",
+  "title": "Agent CodeWalk Walkthrough V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "workspaceFingerprint",
+    "title",
+    "summary",
+    "agent",
+    "task",
+    "createdAt",
+    "steps",
+    "fileOrder",
+    "flowOrder",
+    "changedHunks",
+    "excludedChanges",
+    "degradedBaseline"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "minLength": 1 },
+    "workspaceFingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "summary": { "type": "string", "minLength": 1, "maxLength": 10000 },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["codex", "claude-code", "opencode", "other"] },
+        "sessionId": { "type": "string", "minLength": 1 }
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "goal", "startedAt", "completedAt"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "goal": { "type": "string", "minLength": 1 },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "items": { "$ref": "#/$defs/step" }
+    },
+    "fileOrder": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "flowOrder": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "changedHunks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/hunk" }
+    },
+    "excludedChanges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "reason"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "degradedBaseline": { "type": "boolean" }
+  },
+  "$defs": {
+    "anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["startLine", "endLine", "lineCount", "normalizedHash"],
+      "properties": {
+        "startLine": { "type": "integer", "minimum": 1 },
+        "endLine": { "type": "integer", "minimum": 1 },
+        "lineCount": { "type": "integer", "minimum": 1 },
+        "normalizedHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "symbol": { "type": "string", "minLength": 1 }
+      }
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "path",
+        "title",
+        "explanation",
+        "changeKind",
+        "anchor",
+        "flowAfter",
+        "targetAvailable"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "path": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "explanation": { "type": "string", "minLength": 1, "maxLength": 10000 },
+        "changeKind": { "enum": ["add", "modify", "delete", "rename"] },
+        "anchor": { "$ref": "#/$defs/anchor" },
+        "flowAfter": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "targetAvailable": { "type": "boolean" }
+      }
+    },
+    "hunk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "startLine", "endLine", "kind"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "startLine": { "type": "integer", "minimum": 1 },
+        "endLine": { "type": "integer", "minimum": 1 },
+        "kind": { "enum": ["add", "modify", "delete"] }
+      }
+    }
+  }
+}

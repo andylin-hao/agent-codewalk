@@ -1,0 +1,9 @@
+target/
+node_modules/
+dist/
+coverage/
+*.vsix
+extension/bin/
+.DS_Store
+.vscode-test/
+.agent-codewalk/

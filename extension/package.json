@@ -1,0 +1,98 @@
+{
+  "name": "agent-codewalk",
+  "displayName": "Agent CodeWalk",
+  "description": "Step through code changes made by Codex, Claude Code, and OpenCode.",
+  "version": "0.1.1",
+  "publisher": "agent-codewalk",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "extensionKind": ["workspace"],
+  "categories": ["Other", "Visualization"],
+  "keywords": ["agent", "codex", "claude", "opencode", "walkthrough", "diff"],
+  "main": "./dist/extension.cjs",
+  "activationEvents": [
+    "onView:agentCodeWalk.walkthrough",
+    "onCommand:agentCodeWalk.setup",
+    "onCommand:agentCodeWalk.openLatest"
+  ],
+  "files": ["bin", "dist", "media", "resources", "README.md", "CHANGELOG.md", "LICENSE"],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "agentCodeWalk",
+          "title": "Agent CodeWalk",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "agentCodeWalk": [
+        {
+          "type": "webview",
+          "id": "agentCodeWalk.walkthrough",
+          "name": "Walkthrough"
+        }
+      ]
+    },
+    "commands": [
+      { "command": "agentCodeWalk.setup", "title": "Agent CodeWalk: Setup Agent Integrations" },
+      { "command": "agentCodeWalk.openLatest", "title": "Agent CodeWalk: Open Latest Walkthrough" },
+      { "command": "agentCodeWalk.previous", "title": "Agent CodeWalk: Previous Step" },
+      { "command": "agentCodeWalk.next", "title": "Agent CodeWalk: Next Step" },
+      { "command": "agentCodeWalk.switchMode", "title": "Agent CodeWalk: Switch Explanation Mode" },
+      { "command": "agentCodeWalk.diagnose", "title": "Agent CodeWalk: Diagnose Installation" },
+      { "command": "agentCodeWalk.delete", "title": "Agent CodeWalk: Delete Walkthrough" },
+      { "command": "agentCodeWalk.uninstall", "title": "Agent CodeWalk: Remove Agent Integrations" }
+    ],
+    "configuration": {
+      "title": "Agent CodeWalk",
+      "properties": {
+        "agentCodeWalk.storagePath": {
+          "type": "string",
+          "default": "",
+          "description": "Override the local Agent CodeWalk data directory. AGENT_CODEWALK_HOME takes precedence."
+        },
+        "agentCodeWalk.companionPath": {
+          "type": "string",
+          "default": "",
+          "description": "Override the bundled MCP companion executable used during integration setup."
+        },
+        "agentCodeWalk.refreshInterval": {
+          "type": "number",
+          "default": 2000,
+          "minimum": 500,
+          "maximum": 30000,
+          "description": "Milliseconds between checks for newly published walkthroughs."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "check": "tsc --noEmit && eslint src",
+    "test": "vitest run --coverage && corepack pnpm build && node scripts/smoke-load-bundle.mjs",
+    "test:extension": "corepack pnpm build && node scripts/build-extension-test.mjs && node scripts/run-extension-tests.mjs",
+    "package": "corepack pnpm build && node scripts/smoke-load-bundle.mjs && node scripts/stage-companion.mjs && corepack pnpm exec vsce package --no-dependencies --allow-missing-repository"
+  },
+  "dependencies": {
+    "jsonc-parser": "^3.3.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.35.0",
+    "@types/node": "^24.3.0",
+    "@types/vscode": "^1.96.0",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.6.0",
+    "@vitest/coverage-v8": "^3.2.4",
+    "ajv": "^8.17.1",
+    "esbuild": "^0.25.9",
+    "eslint": "^9.35.0",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.42.0",
+    "vitest": "^3.2.4"
+  }
+}

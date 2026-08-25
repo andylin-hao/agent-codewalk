@@ -1,0 +1,16 @@
+{
+  "name": "agent-codewalk-workspace",
+  "version": "0.1.1",
+  "private": true,
+  "license": "MIT",
+  "packageManager": "pnpm@10.15.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "corepack pnpm --filter agent-codewalk build",
+    "check": "corepack pnpm --filter agent-codewalk check && cargo fmt --check && cargo clippy --workspace --all-targets -- -D warnings",
+    "test": "corepack pnpm --filter agent-codewalk test && cargo test --workspace",
+    "package": "corepack pnpm --filter agent-codewalk package"
+  }
+}

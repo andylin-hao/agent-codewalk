@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "fixture-session",
+  "workspaceFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "title": "Add readiness helper",
+  "summary": "Callers can query readiness.",
+  "agent": { "kind": "codex" },
+  "task": {
+    "id": "fixture-task",
+    "goal": "Add a readiness helper",
+    "startedAt": "2026-01-01T00:00:00Z",
+    "completedAt": "2026-01-01T00:01:00Z"
+  },
+  "createdAt": "2026-01-01T00:01:00Z",
+  "steps": [
+    {
+      "id": "ready",
+      "path": "src/lib.rs",
+      "title": "Expose readiness",
+      "explanation": "The helper exposes the current readiness state.",
+      "changeKind": "add",
+      "anchor": {
+        "startLine": 5,
+        "endLine": 7,
+        "lineCount": 3,
+        "normalizedHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "symbol": "ready"
+      },
+      "flowAfter": [],
+      "targetAvailable": true
+    }
+  ],
+  "fileOrder": ["ready"],
+  "flowOrder": ["ready"],
+  "changedHunks": [
+    { "path": "src/lib.rs", "startLine": 4, "endLine": 7, "kind": "add" }
+  ],
+  "excludedChanges": [],
+  "degradedBaseline": false
+}
+
