@@ -21,12 +21,18 @@ const VERSION = "0.1.1";
 
 type AgentName = "Codex" | "Claude Code" | "OpenCode";
 
-interface AgentTarget {
+export interface AgentTarget {
   readonly name: AgentName;
   readonly executable: string;
   readonly configPath: string;
   readonly skillPath: string;
   readonly hookPath?: string;
+  /**
+   * Paths whose existence means this agent is installed. The configuration file's own
+   * directory cannot be used: Claude Code stores `~/.claude.json` directly in the home
+   * directory, which every user has.
+   */
+  readonly detectPaths: readonly string[];
 }
 
 interface InstallationManifest {
@@ -45,13 +51,20 @@ interface SetupResult {
 }
 
 export class IntegrationInstaller {
+  /**
+   * @param context Supplies the bundled companion and skill resources.
+   * @param output Receives diagnostics; never mixed into agent output.
+   * @param home The user directory whose agent configuration is edited. Injected so
+   *   that installation can be exercised against a temporary directory.
+   */
   public constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly output: vscode.LogOutputChannel,
+    private readonly home: string = os.homedir(),
   ) {}
 
   public async setup(): Promise<void> {
-    const targets = await detectedTargets();
+    const targets = await detectedTargets(this.home);
     const source = await this.resolveCompanionSource();
     const planned = [
       `Companion: ${path.join(dataDirectory(), "bin", VERSION, executableName())}`,
@@ -127,13 +140,17 @@ export class IntegrationInstaller {
         await fs.rm(skillPath, { recursive: true, force: true });
       }
     }
-    await removeCodexConfiguration(path.join(os.homedir(), ".codex", "config.toml"));
-    await removeJsonConfiguration(path.join(os.homedir(), ".claude.json"), ["mcpServers", PRODUCT], manifest.companionPath);
-    await removeClaudeHook(
-      path.join(os.homedir(), ".claude", "settings.json"),
+    await removeCodexConfiguration(path.join(this.home, ".codex", "config.toml"));
+    await removeJsonConfiguration(
+      path.join(this.home, ".claude.json"),
+      ["mcpServers", PRODUCT],
       manifest.companionPath,
     );
-    for (const openCodePath of openCodeConfigCandidates()) {
+    await removeClaudeHook(
+      path.join(this.home, ".claude", "settings.json"),
+      manifest.companionPath,
+    );
+    for (const openCodePath of openCodeConfigCandidates(this.home)) {
       await removeJsonConfiguration(openCodePath, ["mcp", PRODUCT], manifest.companionPath);
     }
     await fs.rm(path.join(dataDirectory(), "bin"), { recursive: true, force: true });
@@ -214,14 +231,15 @@ export class IntegrationInstaller {
   }
 }
 
-async function detectedTargets(): Promise<AgentTarget[]> {
-  const home = os.homedir();
+/** Finds the agents installed for this user, by executable or by configuration directory. */
+export async function detectedTargets(home: string): Promise<AgentTarget[]> {
   const definitions: AgentTarget[] = [
     {
       name: "Codex",
       executable: "codex",
       configPath: path.join(home, ".codex", "config.toml"),
       skillPath: path.join(home, ".agents", "skills", PRODUCT),
+      detectPaths: [path.join(home, ".codex")],
     },
     {
       name: "Claude Code",
@@ -229,21 +247,35 @@ async function detectedTargets(): Promise<AgentTarget[]> {
       configPath: path.join(home, ".claude.json"),
       skillPath: path.join(home, ".claude", "skills", PRODUCT),
       hookPath: path.join(home, ".claude", "settings.json"),
+      detectPaths: [path.join(home, ".claude"), path.join(home, ".claude.json")],
     },
     {
       name: "OpenCode",
       executable: "opencode",
-      configPath: await preferredOpenCodeConfig(),
+      configPath: await preferredOpenCodeConfig(home),
       skillPath: path.join(home, ".agents", "skills", PRODUCT),
+      detectPaths: [path.dirname(await preferredOpenCodeConfig(home))],
     },
   ];
   const targets: AgentTarget[] = [];
   for (const definition of definitions) {
-    if ((await executableExists(definition.executable)) || (await exists(path.dirname(definition.configPath)))) {
+    if (await isInstalled(definition)) {
       targets.push(definition);
     }
   }
   return targets;
+}
+
+async function isInstalled(target: AgentTarget): Promise<boolean> {
+  if (await executableExists(target.executable)) {
+    return true;
+  }
+  for (const candidate of target.detectPaths) {
+    if (await exists(candidate)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 async function configureTarget(target: AgentTarget, companionPath: string): Promise<void> {
@@ -453,18 +485,22 @@ function manifestPath(): string {
   return path.join(dataDirectory(), "installation.json");
 }
 
-async function preferredOpenCodeConfig(): Promise<string> {
-  for (const candidate of openCodeConfigCandidates()) {
+async function preferredOpenCodeConfig(home: string): Promise<string> {
+  const candidates = openCodeConfigCandidates(home);
+  for (const candidate of candidates) {
     if (await exists(candidate)) {
       return candidate;
     }
   }
-  return openCodeConfigCandidates()[0] ?? path.join(os.homedir(), ".config", "opencode", "opencode.json");
+  return candidates[0] ?? path.join(home, ".config", "opencode", "opencode.json");
 }
 
-function openCodeConfigCandidates(): string[] {
-  const base = process.env.XDG_CONFIG_HOME ?? path.join(os.homedir(), ".config");
-  return [path.join(base, "opencode", "opencode.json"), path.join(base, "opencode", "opencode.jsonc")];
+function openCodeConfigCandidates(home: string): string[] {
+  const base = process.env.XDG_CONFIG_HOME ?? path.join(home, ".config");
+  return [
+    path.join(base, "opencode", "opencode.json"),
+    path.join(base, "opencode", "opencode.jsonc"),
+  ];
 }
 
 async function executableExists(name: string): Promise<boolean> {

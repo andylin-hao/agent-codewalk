@@ -64,23 +64,52 @@ export interface ResolvedAnchor {
   readonly relocated: boolean;
 }
 
+/** One session as offered in the session picker. */
+export interface SessionSummary {
+  readonly id: string;
+  readonly title: string;
+  readonly createdAt: string;
+  readonly stepCount: number;
+  readonly agent: AgentKind;
+}
+
+/** One row of the step list, in the order currently being played. */
+export interface StepSummary {
+  readonly id: string;
+  readonly position: number;
+  readonly title: string;
+  readonly path: string;
+  readonly startLine: number;
+  readonly changeKind: ChangeKind;
+  readonly hasDiff: boolean;
+  readonly flowAfter: readonly string[];
+  readonly active: boolean;
+}
+
+/** Steps of one file, used by the by-file grouping in the step list. */
+export interface StepGroup {
+  readonly path: string;
+  readonly steps: readonly StepSummary[];
+}
+
 export interface ViewState {
-  readonly sessions: readonly {
-    readonly id: string;
-    readonly title: string;
-    readonly createdAt: string;
-  }[];
+  readonly sessions: readonly SessionSummary[];
   readonly activeSessionId?: string;
   readonly title?: string;
   readonly summary?: string;
+  readonly goal?: string;
+  readonly agent?: AgentKind;
   readonly mode: ExplanationMode;
   readonly step?: WalkthroughStep;
   readonly stepNumber: number;
   readonly stepCount: number;
+  readonly steps: readonly StepSummary[];
+  readonly groups: readonly StepGroup[];
   readonly stale: boolean;
   readonly relocated: boolean;
+  readonly canShowDiff: boolean;
   readonly degradedBaseline: boolean;
+  readonly uncoveredHunks: readonly ChangeHunk[];
   readonly excludedChanges: readonly ExcludedChange[];
   readonly error?: string;
 }
-

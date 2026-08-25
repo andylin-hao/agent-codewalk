@@ -26,15 +26,15 @@ interface NegativeFixture {
   readonly cases: readonly NegativeCase[];
 }
 
-function readFixture<T>(name: string): T {
+function readFixture(name: string): unknown {
   return JSON.parse(
     readFileSync(new URL(`../../protocol/fixtures/${name}`, import.meta.url), "utf8"),
-  ) as T;
+  );
 }
 
-const schema = readFixture<object>("../walkthrough-v1.schema.json");
-const validMinimal = readFixture<unknown>("valid-minimal.json");
-const negative = readFixture<NegativeFixture>("invalid.json");
+const schema = readFixture("../walkthrough-v1.schema.json") as object;
+const validMinimal = readFixture("valid-minimal.json");
+const negative = readFixture("invalid.json") as NegativeFixture;
 const validateAgainstSchema: ValidateFunction = new Ajv2020({
   strict: true,
   validateFormats: false,
@@ -63,7 +63,7 @@ function assign(target: unknown, segments: readonly string[], value: unknown): v
   const container = target as JsonObject;
   if (rest.length === 0) {
     if (value === undefined) {
-      delete container[head];
+      Reflect.deleteProperty(container, head);
     } else {
       container[head] = value;
     }

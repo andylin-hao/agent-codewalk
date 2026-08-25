@@ -21,11 +21,7 @@
   "categories": ["Other", "Visualization"],
   "keywords": ["agent", "codex", "claude", "opencode", "walkthrough", "diff"],
   "main": "./dist/extension.cjs",
-  "activationEvents": [
-    "onView:agentCodeWalk.walkthrough",
-    "onCommand:agentCodeWalk.setup",
-    "onCommand:agentCodeWalk.openLatest"
-  ],
+  "activationEvents": ["onStartupFinished"],
   "files": ["bin", "dist", "media", "resources", "README.md", "CHANGELOG.md", "LICENSE"],
   "contributes": {
     "viewsContainers": {
@@ -46,16 +42,148 @@
         }
       ]
     },
-    "commands": [
-      { "command": "agentCodeWalk.setup", "title": "Agent CodeWalk: Setup Agent Integrations" },
-      { "command": "agentCodeWalk.openLatest", "title": "Agent CodeWalk: Open Latest Walkthrough" },
-      { "command": "agentCodeWalk.previous", "title": "Agent CodeWalk: Previous Step" },
-      { "command": "agentCodeWalk.next", "title": "Agent CodeWalk: Next Step" },
-      { "command": "agentCodeWalk.switchMode", "title": "Agent CodeWalk: Switch Explanation Mode" },
-      { "command": "agentCodeWalk.diagnose", "title": "Agent CodeWalk: Diagnose Installation" },
-      { "command": "agentCodeWalk.delete", "title": "Agent CodeWalk: Delete Walkthrough" },
-      { "command": "agentCodeWalk.uninstall", "title": "Agent CodeWalk: Remove Agent Integrations" }
+    "viewsWelcome": [
+      {
+        "view": "agentCodeWalk.walkthrough",
+        "contents": "Agent CodeWalk plays back the changes an agent just made.\n[Set up agent integrations](command:agentCodeWalk.setup)"
+      }
     ],
+    "commands": [
+      {
+        "command": "agentCodeWalk.setup",
+        "title": "Setup Agent Integrations",
+        "category": "Agent CodeWalk"
+      },
+      {
+        "command": "agentCodeWalk.openLatest",
+        "title": "Open Latest Walkthrough",
+        "category": "Agent CodeWalk",
+        "icon": "$(play)"
+      },
+      {
+        "command": "agentCodeWalk.previous",
+        "title": "Previous Step",
+        "category": "Agent CodeWalk",
+        "icon": "$(arrow-left)"
+      },
+      {
+        "command": "agentCodeWalk.next",
+        "title": "Next Step",
+        "category": "Agent CodeWalk",
+        "icon": "$(arrow-right)"
+      },
+      {
+        "command": "agentCodeWalk.switchMode",
+        "title": "Switch Between File and Execution-Flow Order",
+        "category": "Agent CodeWalk",
+        "icon": "$(list-ordered)"
+      },
+      {
+        "command": "agentCodeWalk.jumpToStep",
+        "title": "Jump to Step",
+        "category": "Agent CodeWalk",
+        "icon": "$(search)"
+      },
+      {
+        "command": "agentCodeWalk.showDiff",
+        "title": "Compare Current Step With Before",
+        "category": "Agent CodeWalk",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "agentCodeWalk.diagnose",
+        "title": "Diagnose Installation",
+        "category": "Agent CodeWalk"
+      },
+      {
+        "command": "agentCodeWalk.delete",
+        "title": "Delete Walkthrough",
+        "category": "Agent CodeWalk",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "agentCodeWalk.uninstall",
+        "title": "Remove Agent Integrations",
+        "category": "Agent CodeWalk"
+      },
+      {
+        "command": "agentCodeWalk.goToStep",
+        "title": "Go to Walkthrough Step",
+        "category": "Agent CodeWalk"
+      },
+      {
+        "command": "agentCodeWalk.showStepDiff",
+        "title": "Compare Walkthrough Step With Before",
+        "category": "Agent CodeWalk"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "agentCodeWalk.next",
+        "key": "alt+]",
+        "when": "agentCodeWalk.hasSession"
+      },
+      {
+        "command": "agentCodeWalk.previous",
+        "key": "alt+[",
+        "when": "agentCodeWalk.hasSession"
+      },
+      {
+        "command": "agentCodeWalk.switchMode",
+        "key": "alt+\\",
+        "when": "agentCodeWalk.hasSession"
+      },
+      {
+        "command": "agentCodeWalk.jumpToStep",
+        "key": "ctrl+alt+w",
+        "mac": "cmd+alt+w",
+        "when": "agentCodeWalk.hasSession"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        { "command": "agentCodeWalk.goToStep", "when": "false" },
+        { "command": "agentCodeWalk.showStepDiff", "when": "false" },
+        { "command": "agentCodeWalk.next", "when": "agentCodeWalk.hasSession" },
+        { "command": "agentCodeWalk.previous", "when": "agentCodeWalk.hasSession" },
+        { "command": "agentCodeWalk.switchMode", "when": "agentCodeWalk.hasSession" },
+        { "command": "agentCodeWalk.jumpToStep", "when": "agentCodeWalk.hasSession" },
+        { "command": "agentCodeWalk.showDiff", "when": "agentCodeWalk.hasSession" },
+        { "command": "agentCodeWalk.delete", "when": "agentCodeWalk.hasSession" }
+      ],
+      "view/title": [
+        {
+          "command": "agentCodeWalk.previous",
+          "when": "view == agentCodeWalk.walkthrough && agentCodeWalk.hasSession",
+          "group": "navigation@1"
+        },
+        {
+          "command": "agentCodeWalk.next",
+          "when": "view == agentCodeWalk.walkthrough && agentCodeWalk.hasSession",
+          "group": "navigation@2"
+        },
+        {
+          "command": "agentCodeWalk.jumpToStep",
+          "when": "view == agentCodeWalk.walkthrough && agentCodeWalk.hasSession",
+          "group": "navigation@3"
+        },
+        {
+          "command": "agentCodeWalk.setup",
+          "when": "view == agentCodeWalk.walkthrough",
+          "group": "1_setup"
+        },
+        {
+          "command": "agentCodeWalk.diagnose",
+          "when": "view == agentCodeWalk.walkthrough",
+          "group": "1_setup"
+        },
+        {
+          "command": "agentCodeWalk.uninstall",
+          "when": "view == agentCodeWalk.walkthrough",
+          "group": "1_setup"
+        }
+      ]
+    },
     "configuration": {
       "title": "Agent CodeWalk",
       "properties": {
@@ -71,10 +199,15 @@
         },
         "agentCodeWalk.refreshInterval": {
           "type": "number",
-          "default": 2000,
+          "default": 4000,
           "minimum": 500,
           "maximum": 30000,
-          "description": "Milliseconds between checks for newly published walkthroughs."
+          "description": "Fallback poll interval in milliseconds. New walkthroughs are normally detected by watching the data directory; this poll covers filesystems where watching does not work."
+        },
+        "agentCodeWalk.notifyOnPublish": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a notification when an agent publishes a new walkthrough."
         }
       }
     }
@@ -85,6 +218,7 @@
     "check": "tsc --noEmit && eslint src",
     "test": "vitest run --coverage && corepack pnpm build && node scripts/smoke-load-bundle.mjs",
     "test:extension": "corepack pnpm build && node scripts/build-extension-test.mjs && node scripts/run-extension-tests.mjs",
+    "icon": "node scripts/generate-icon.mjs",
     "package": "corepack pnpm build && node scripts/smoke-load-bundle.mjs && node scripts/stage-companion.mjs && corepack pnpm exec vsce package --no-dependencies"
   },
   "dependencies": {

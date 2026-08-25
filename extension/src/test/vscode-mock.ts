@@ -60,10 +60,21 @@ export class Range {
 }
 
 export class Uri {
-  private constructor(public readonly fsPath: string) {}
+  private constructor(
+    public readonly scheme: string,
+    public readonly fsPath: string,
+  ) {}
 
   public static file(value: string): Uri {
-    return new Uri(value);
+    return new Uri("file", value);
+  }
+
+  public static parse(value: string): Uri {
+    const separator = value.indexOf(":");
+    if (separator < 0) {
+      return new Uri("file", value);
+    }
+    return new Uri(value.slice(0, separator), value.slice(separator + 1));
   }
 
   public get path(): string {
@@ -71,7 +82,7 @@ export class Uri {
   }
 
   public toString(): string {
-    return `file://${this.fsPath}`;
+    return `${this.scheme}:${this.fsPath}`;
   }
 }
 
@@ -80,12 +91,12 @@ export class MarkdownString {
   public isTrusted = false;
   public supportHtml = false;
 
-  public appendText(value: string): MarkdownString {
+  public appendText(value: string): this {
     this.value += value;
     return this;
   }
 
-  public appendMarkdown(value: string): MarkdownString {
+  public appendMarkdown(value: string): this {
     this.value += value;
     return this;
   }
@@ -116,7 +127,7 @@ export class TreeItem {
 
   public constructor(
     public readonly label: string,
-    public readonly collapsibleState: number = 0,
+    public readonly collapsibleState = 0,
   ) {}
 }
 
@@ -212,6 +223,9 @@ interface MockState {
   outputChannels: MockLogOutputChannel[];
   statusBarItems: MockStatusBarItem[];
   codeLensProviders: unknown[];
+  contentProviders: Map<string, unknown>;
+  quickPickResponses: unknown[];
+  quickPickRequests: unknown[][];
   treeDataProviders: Map<string, unknown>;
   webviewProviders: Map<string, unknown>;
   activeTextEditor: MockTextEditor | undefined;
@@ -235,6 +249,9 @@ function createState(): MockState {
     outputChannels: [],
     statusBarItems: [],
     codeLensProviders: [],
+    contentProviders: new Map<string, unknown>(),
+    quickPickResponses: [],
+    quickPickRequests: [],
     treeDataProviders: new Map<string, unknown>(),
     webviewProviders: new Map<string, unknown>(),
     activeTextEditor: undefined,
@@ -281,7 +298,16 @@ export const workspace = {
     const content = await fs.readFile(uri.fsPath, "utf8");
     return createDocument(uri, content);
   },
+  registerTextDocumentContentProvider(scheme: string, provider: unknown): Disposable {
+    mockState.contentProviders.set(scheme, provider);
+    return new Disposable(() => mockState.contentProviders.delete(scheme));
+  },
 };
+
+/** Builds a document from text, for tests that do not want a file on disk. */
+export function documentFromText(fsPath: string, content: string): MockTextDocument {
+  return createDocument(Uri.file(fsPath), content);
+}
 
 function createDocument(uri: Uri, content: string): MockTextDocument {
   const lines = content.split("\n");
@@ -351,13 +377,13 @@ export const window = {
     mockState.statusBarItems.push(item);
     return item;
   },
-  async showTextDocument(document: MockTextDocument, _options?: unknown): Promise<MockTextEditor> {
+  showTextDocument(document: MockTextDocument, _options?: unknown): Promise<MockTextEditor> {
     const existing = mockState.visibleTextEditors.find(
       (editor) => editor.document.uri.fsPath === document.uri.fsPath,
     );
     if (existing !== undefined) {
       mockState.activeTextEditor = existing;
-      return existing;
+      return Promise.resolve(existing);
     }
     const editor: MockTextEditor = {
       document,
@@ -373,7 +399,7 @@ export const window = {
     };
     mockState.visibleTextEditors.push(editor);
     mockState.activeTextEditor = editor;
-    return editor;
+    return Promise.resolve(editor);
   },
   showInformationMessage(message: string, ..._rest: unknown[]): Promise<string | undefined> {
     mockState.shownMessages.push(message);
@@ -389,6 +415,10 @@ export const window = {
   registerWebviewViewProvider(identifier: string, provider: unknown): Disposable {
     mockState.webviewProviders.set(identifier, provider);
     return new Disposable(() => mockState.webviewProviders.delete(identifier));
+  },
+  showQuickPick(items: unknown[], _options?: unknown): Promise<unknown> {
+    mockState.quickPickRequests.push(items);
+    return Promise.resolve(mockState.quickPickResponses.shift());
   },
   registerTreeDataProvider(identifier: string, provider: unknown): Disposable {
     mockState.treeDataProviders.set(identifier, provider);
