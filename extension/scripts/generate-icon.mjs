@@ -8,7 +8,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import zlib from "node:zlib";
 
 const SIZE = 128;
 const SCALE = 4;
@@ -275,9 +274,44 @@ function encodePng(pixels, width, height) {
   return Buffer.concat([
     Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
     chunk("IHDR", header),
-    chunk("IDAT", zlib.deflateSync(raw, { level: 9 })),
+    chunk("IDAT", encodeStoredZlib(raw)),
     chunk("IEND", Buffer.alloc(0)),
   ]);
+}
+
+/**
+ * Encodes a zlib stream with DEFLATE stored blocks. Compression libraries may emit
+ * different bytes across runtime versions even for identical pixels; stored blocks
+ * make the committed PNG reproducible everywhere at a modest cost for a 128px asset.
+ *
+ * @param {Buffer} data
+ * @returns {Buffer}
+ */
+function encodeStoredZlib(data) {
+  const parts = [Buffer.from([0x78, 0x01])];
+  for (let offset = 0; offset < data.length; offset += 0xffff) {
+    const length = Math.min(0xffff, data.length - offset);
+    const header = Buffer.alloc(5);
+    header[0] = offset + length === data.length ? 0x01 : 0x00;
+    header.writeUInt16LE(length, 1);
+    header.writeUInt16LE(0xffff ^ length, 3);
+    parts.push(header, data.subarray(offset, offset + length));
+  }
+  const checksum = Buffer.alloc(4);
+  checksum.writeUInt32BE(adler32(data));
+  parts.push(checksum);
+  return Buffer.concat(parts);
+}
+
+/** @param {Buffer} data @returns {number} */
+function adler32(data) {
+  let first = 1;
+  let second = 0;
+  for (const byte of data) {
+    first = (first + byte) % 65_521;
+    second = (second + first) % 65_521;
+  }
+  return ((second << 16) | first) >>> 0;
 }
 
 /**

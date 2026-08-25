@@ -24,5 +24,6 @@ describe("extension icon assets", () => {
     expect(png.readUInt32BE(16)).toBe(128);
     expect(png.readUInt32BE(20)).toBe(128);
     expect(png[25]).toBe(6);
+    expect(png.subarray(41, 43)).toEqual(Buffer.from([0x78, 0x01]));
   });
 });

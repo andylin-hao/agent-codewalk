@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::{BTreeMap, BTreeSet},
     fs,
     io::Read,
@@ -459,9 +460,11 @@ fn read_text_candidate(path: &Path) -> std::result::Result<Vec<u8>, String> {
 /// Converts a file pair into current-side hunks, each carrying the baseline text it
 /// replaced so that a step can show a "before" excerpt without a second Git call.
 fn diff_hunks(path: &str, old: &str, new: &str) -> Vec<HunkDetail> {
+    let old = normalize_line_endings(old);
+    let new = normalize_line_endings(new);
     let new_line_count = new.lines().count().max(1);
     let old_lines: Vec<&str> = old.lines().collect();
-    TextDiff::from_lines(old, new)
+    TextDiff::from_lines(old.as_ref(), new.as_ref())
         .ops()
         .iter()
         .filter_map(|operation| {
@@ -493,6 +496,14 @@ fn diff_hunks(path: &str, old: &str, new: &str) -> Vec<HunkDetail> {
             })
         })
         .collect()
+}
+
+fn normalize_line_endings(text: &str) -> Cow<'_, str> {
+    if text.contains('\r') {
+        Cow::Owned(text.replace("\r\n", "\n").replace('\r', "\n"))
+    } else {
+        Cow::Borrowed(text)
+    }
 }
 
 fn git_output(current_dir: &Path, arguments: &[&str]) -> Result<String> {
@@ -535,6 +546,20 @@ mod tests {
     fn keeps_the_replaced_lines_as_the_previous_text() {
         let details = diff_hunks("src/lib.rs", "one\ntwo\nthree\n", "one\nchanged\n");
         assert_eq!(details[0].previous_text, "two\nthree");
+    }
+
+    #[test]
+    fn normalizes_line_endings_before_calculating_hunks() {
+        assert!(diff_hunks("src/lib.rs", "one\r\ntwo\r\n", "one\ntwo\n").is_empty());
+
+        let details = diff_hunks("src/lib.rs", "one\r\ntwo\r\n", "one\nchanged\n");
+        assert_eq!(details.len(), 1);
+        assert_eq!(details[0].hunk.kind, ChangeKind::Modify);
+        assert_eq!(
+            (details[0].hunk.start_line, details[0].hunk.end_line),
+            (2, 2)
+        );
+        assert_eq!(details[0].previous_text, "two");
     }
 
     #[test]
