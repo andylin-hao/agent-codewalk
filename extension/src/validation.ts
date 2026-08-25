@@ -27,6 +27,7 @@ export function parseWalkthrough(value: unknown): Walkthrough {
       "fileOrder",
       "flowOrder",
       "changedHunks",
+      "uncoveredHunks",
       "excludedChanges",
       "degradedBaseline",
     ],
@@ -78,10 +79,14 @@ export function parseWalkthrough(value: unknown): Walkthrough {
     steps,
     fileOrder,
     flowOrder,
-    changedHunks: array(object.changedHunks, "changedHunks").map(parseHunk),
+    changedHunks: parseHunks(object.changedHunks, "changedHunks"),
+    uncoveredHunks: parseHunks(object.uncoveredHunks, "uncoveredHunks"),
     excludedChanges: array(object.excludedChanges, "excludedChanges").map(parseExcluded),
     degradedBaseline: boolean(object.degradedBaseline, "degradedBaseline"),
   };
+  if (result.uncoveredHunks.length > 0 && !result.degradedBaseline) {
+    fail("uncoveredHunks is only allowed when degradedBaseline is true");
+  }
   return result;
 }
 
@@ -89,7 +94,17 @@ function parseStep(value: unknown, field: string): WalkthroughStep {
   const object = record(value, field);
   exactKeys(
     object,
-    ["id", "path", "title", "explanation", "changeKind", "anchor", "flowAfter", "targetAvailable"],
+    [
+      "id",
+      "path",
+      "title",
+      "explanation",
+      "changeKind",
+      "anchor",
+      "flowAfter",
+      "targetAvailable",
+      "previousText",
+    ],
     field,
   );
   const path = relativePath(object.path, `${field}.path`);
@@ -106,6 +121,9 @@ function parseStep(value: unknown, field: string): WalkthroughStep {
     anchor: parseAnchor(object.anchor, `${field}.anchor`),
     flowAfter: uniqueStringArray(object.flowAfter, `${field}.flowAfter`),
     targetAvailable: boolean(object.targetAvailable, `${field}.targetAvailable`),
+    ...(object.previousText === undefined
+      ? {}
+      : { previousText: boundedString(object.previousText, `${field}.previousText`, 4_100) }),
   };
 }
 
@@ -132,8 +150,13 @@ function parseAnchor(value: unknown, field: string): CodeAnchor {
   };
 }
 
-function parseHunk(value: unknown, index: number): ChangeHunk {
-  const field = `changedHunks[${String(index)}]`;
+function parseHunks(value: unknown, field: string): ChangeHunk[] {
+  return array(value, field).map((hunk, index) =>
+    parseHunk(hunk, `${field}[${String(index)}]`),
+  );
+}
+
+function parseHunk(value: unknown, field: string): ChangeHunk {
   const object = record(value, field);
   exactKeys(object, ["path", "startLine", "endLine", "kind"], field);
   const startLine = positiveInteger(object.startLine, `${field}.startLine`);

@@ -19,6 +19,8 @@ export interface WalkthroughStep {
   readonly anchor: CodeAnchor;
   readonly flowAfter: readonly string[];
   readonly targetAvailable: boolean;
+  /** Baseline text this step replaced, when the companion could record it. */
+  readonly previousText?: string;
 }
 
 export interface ChangeHunk {
@@ -51,6 +53,7 @@ export interface Walkthrough {
   readonly fileOrder: readonly string[];
   readonly flowOrder: readonly string[];
   readonly changedHunks: readonly ChangeHunk[];
+  readonly uncoveredHunks: readonly ChangeHunk[];
   readonly excludedChanges: readonly ExcludedChange[];
   readonly degradedBaseline: boolean;
 }

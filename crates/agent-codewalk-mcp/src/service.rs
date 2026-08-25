@@ -15,7 +15,7 @@ use crate::{
         resolve_workspace_path, validate_non_empty,
     },
     model::{
-        BeginTaskRequest, BeginTaskResult, ChangeHunk, ChangeKind, CodeAnchor,
+        BeginTaskRequest, BeginTaskResult, ChangeHunk, ChangeKind, CodeAnchor, HunkDetail,
         PublishWalkthroughRequest, PublishWalkthroughResult, StepInput, TaskStatusResult,
         Walkthrough, WalkthroughAgent, WalkthroughStep, WalkthroughTask,
     },
@@ -26,6 +26,8 @@ const MAX_STEPS: usize = 500;
 const MAX_IDENTIFIER_CHARACTERS: usize = 100;
 const MAX_TITLE_CHARACTERS: usize = 200;
 const MAX_EXPLANATION_CHARACTERS: usize = 10_000;
+const MAX_PREVIOUS_TEXT_CHARACTERS: usize = 4_000;
+const WORKSPACE_ENVIRONMENT_VARIABLE: &str = "AGENT_CODEWALK_WORKSPACE";
 
 /// Implements task capture and walkthrough publication independently from MCP transport.
 #[derive(Clone, Debug)]
@@ -41,9 +43,12 @@ impl CodeWalkService {
     ///
     /// Returns an error when either directory cannot be resolved or initialized.
     pub fn from_environment() -> Result<Self> {
-        let workspace_root = std::env::current_dir()
+        let current_dir = std::env::current_dir()
             .map_err(|error| CodeWalkError::io("current directory", error))?;
-        Self::new(&workspace_root, Storage::from_environment()?)
+        Self::new(
+            &resolve_workspace_root(&current_dir),
+            Storage::from_environment()?,
+        )
     }
 
     /// Creates a service rooted at an explicit workspace.
@@ -108,17 +113,26 @@ impl CodeWalkService {
         }
 
         let changes = calculate_changes(&self.storage, &self.workspace_root, &manifest)?;
-        if changes.hunks.is_empty() && changes.excluded.is_empty() && !manifest.degraded_baseline {
+        if changes.details.is_empty() && changes.excluded.is_empty() && !manifest.degraded_baseline
+        {
             return Err(CodeWalkError::InvalidRequest(
                 "no changes were found relative to the task baseline".to_owned(),
             ));
         }
-        validate_coverage(&request.steps, &changes.hunks, manifest.degraded_baseline)?;
+        // A complete baseline knows exactly what changed, so an unexplained hunk is a
+        // hard error. A degraded baseline only guesses, so the same finding is reported
+        // to the reader instead of blocking publication.
+        let uncovered = uncovered_hunks(&request.steps, &changes.details);
+        if !uncovered.is_empty() && !manifest.degraded_baseline {
+            return Err(CodeWalkError::IncompleteCoverage(describe_hunks(
+                &uncovered,
+            )));
+        }
         let renamed = detect_renamed_destinations(&self.workspace_root, manifest.head.as_deref());
 
         let mut steps = Vec::with_capacity(request.steps.len());
         for input in request.steps {
-            steps.push(self.enrich_step(input, &changes.hunks, &renamed)?);
+            steps.push(self.enrich_step(input, &changes.details, &renamed)?);
         }
         let file_order = file_order(&steps);
         let flow_order = flow_order(&steps, &file_order)?;
@@ -144,7 +158,8 @@ impl CodeWalkService {
             steps,
             file_order,
             flow_order,
-            changed_hunks: changes.hunks,
+            changed_hunks: changes.hunks(),
+            uncovered_hunks: uncovered,
             excluded_changes: changes.excluded.clone(),
             degraded_baseline: manifest.degraded_baseline,
         };
@@ -164,6 +179,12 @@ impl CodeWalkService {
                 "Some binary, large, or unsupported changes are listed but not highlighted."
                     .to_owned(),
             );
+        }
+        if !walkthrough.uncovered_hunks.is_empty() {
+            warnings.push(format!(
+                "No step explains these changes: {}.",
+                describe_hunks(&walkthrough.uncovered_hunks)
+            ));
         }
         Ok(PublishWalkthroughResult {
             walkthrough_id,
@@ -222,7 +243,7 @@ impl CodeWalkService {
     fn enrich_step(
         &self,
         input: StepInput,
-        hunks: &[ChangeHunk],
+        details: &[HunkDetail],
         renamed: &BTreeSet<String>,
     ) -> Result<WalkthroughStep> {
         let normalized_path = input.path.replace('\\', "/");
@@ -240,10 +261,12 @@ impl CodeWalkService {
             }
             (false, make_deleted_anchor(&input))
         };
+        let overlapping =
+            overlapping_details(&normalized_path, input.start_line, input.end_line, details);
         let change_kind = if renamed.contains(&normalized_path) {
             ChangeKind::Rename
         } else {
-            infer_change_kind(&normalized_path, input.start_line, input.end_line, hunks)
+            infer_change_kind(&overlapping)
         };
         Ok(WalkthroughStep {
             id: input.id,
@@ -254,8 +277,38 @@ impl CodeWalkService {
             anchor,
             flow_after: input.flow_after,
             target_available,
+            previous_text: previous_text(&overlapping),
         })
     }
+}
+
+/// Chooses the directory that identifies the workspace for storage and playback.
+///
+/// An agent is frequently started in a subdirectory of the repository the editor has
+/// open. Fingerprinting the raw working directory made those sessions invisible, so the
+/// Git top level wins whenever one exists. `AGENT_CODEWALK_WORKSPACE` overrides both for
+/// setups where neither assumption holds.
+fn resolve_workspace_root(current_dir: &Path) -> PathBuf {
+    if let Some(configured) = std::env::var_os(WORKSPACE_ENVIRONMENT_VARIABLE) {
+        let candidate = PathBuf::from(configured);
+        if candidate.is_dir() {
+            return candidate;
+        }
+    }
+    git_top_level(current_dir).unwrap_or_else(|| current_dir.to_owned())
+}
+
+fn git_top_level(current_dir: &Path) -> Option<PathBuf> {
+    let output = std::process::Command::new("git")
+        .args(["rev-parse", "--show-toplevel"])
+        .current_dir(current_dir)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let path = PathBuf::from(String::from_utf8(output.stdout).ok()?.trim());
+    path.is_dir().then_some(path)
 }
 
 fn validate_publish_request(request: &PublishWalkthroughRequest) -> Result<()> {
@@ -335,12 +388,11 @@ fn validate_publish_request(request: &PublishWalkthroughRequest) -> Result<()> {
     Ok(())
 }
 
-fn validate_coverage(steps: &[StepInput], hunks: &[ChangeHunk], degraded: bool) -> Result<()> {
-    if degraded {
-        return Ok(());
-    }
-    let uncovered: Vec<String> = hunks
+/// Returns every changed hunk that no step overlaps, in publication order.
+fn uncovered_hunks(steps: &[StepInput], details: &[HunkDetail]) -> Vec<ChangeHunk> {
+    details
         .iter()
+        .map(|detail| &detail.hunk)
         .filter(|hunk| {
             !steps.iter().any(|step| {
                 step.path.replace('\\', "/") == hunk.path
@@ -352,13 +404,57 @@ fn validate_coverage(steps: &[StepInput], hunks: &[ChangeHunk], degraded: bool) 
                     )
             })
         })
+        .cloned()
+        .collect()
+}
+
+fn describe_hunks(hunks: &[ChangeHunk]) -> String {
+    hunks
+        .iter()
         .map(|hunk| format!("{}:{}-{}", hunk.path, hunk.start_line, hunk.end_line))
-        .collect();
-    if uncovered.is_empty() {
-        Ok(())
-    } else {
-        Err(CodeWalkError::IncompleteCoverage(uncovered.join(", ")))
+        .collect::<Vec<String>>()
+        .join(", ")
+}
+
+/// Selects the hunks a step covers, which decide both its change kind and the
+/// baseline excerpt shown next to it.
+fn overlapping_details<'a>(
+    path: &str,
+    start_line: u32,
+    end_line: u32,
+    details: &'a [HunkDetail],
+) -> Vec<&'a HunkDetail> {
+    details
+        .iter()
+        .filter(|detail| {
+            detail.hunk.path == path
+                && ranges_overlap(
+                    start_line,
+                    end_line,
+                    detail.hunk.start_line,
+                    detail.hunk.end_line,
+                )
+        })
+        .collect()
+}
+
+/// Joins the baseline text of every covered hunk, truncated so that one step can
+/// never dominate the session file.
+fn previous_text(overlapping: &[&HunkDetail]) -> Option<String> {
+    let joined = overlapping
+        .iter()
+        .map(|detail| detail.previous_text.as_str())
+        .filter(|text| !text.is_empty())
+        .collect::<Vec<&str>>()
+        .join("\n");
+    if joined.is_empty() {
+        return None;
     }
+    if joined.chars().count() <= MAX_PREVIOUS_TEXT_CHARACTERS {
+        return Some(joined);
+    }
+    let truncated: String = joined.chars().take(MAX_PREVIOUS_TEXT_CHARACTERS).collect();
+    Some(format!("{truncated}\n… truncated"))
 }
 
 fn ranges_overlap(left_start: u32, left_end: u32, right_start: u32, right_end: u32) -> bool {
@@ -405,20 +501,8 @@ fn hash_text(value: &str) -> String {
     hex::encode(Sha256::digest(normalized.as_bytes()))
 }
 
-fn infer_change_kind(
-    path: &str,
-    start_line: u32,
-    end_line: u32,
-    hunks: &[ChangeHunk],
-) -> ChangeKind {
-    let matching: Vec<ChangeKind> = hunks
-        .iter()
-        .filter(|hunk| {
-            hunk.path == path
-                && ranges_overlap(start_line, end_line, hunk.start_line, hunk.end_line)
-        })
-        .map(|hunk| hunk.kind)
-        .collect();
+fn infer_change_kind(overlapping: &[&HunkDetail]) -> ChangeKind {
+    let matching: Vec<ChangeKind> = overlapping.iter().map(|detail| detail.hunk.kind).collect();
     if matching.contains(&ChangeKind::Modify) || matching.len() > 1 {
         ChangeKind::Modify
     } else {
@@ -500,8 +584,13 @@ fn flow_order(steps: &[WalkthroughStep], stable_order: &[String]) -> Result<Vec<
 
 #[cfg(test)]
 mod tests {
-    use super::{flow_order, make_anchor};
-    use crate::model::{ChangeKind, CodeAnchor, StepInput, WalkthroughStep};
+    use super::{
+        MAX_PREVIOUS_TEXT_CHARACTERS, describe_hunks, flow_order, make_anchor, previous_text,
+        resolve_workspace_root, uncovered_hunks,
+    };
+    use crate::model::{
+        ChangeHunk, ChangeKind, CodeAnchor, HunkDetail, StepInput, WalkthroughStep,
+    };
 
     fn step(id: &str, flow_after: &[&str]) -> WalkthroughStep {
         WalkthroughStep {
@@ -519,6 +608,32 @@ mod tests {
             },
             flow_after: flow_after.iter().map(|value| (*value).to_owned()).collect(),
             target_available: true,
+            previous_text: None,
+        }
+    }
+
+    fn input(id: &str, path: &str, start_line: u32, end_line: u32) -> StepInput {
+        StepInput {
+            id: id.to_owned(),
+            path: path.to_owned(),
+            start_line,
+            end_line,
+            title: id.to_owned(),
+            explanation: id.to_owned(),
+            flow_after: Vec::new(),
+            symbol: None,
+        }
+    }
+
+    fn detail(path: &str, start_line: u32, end_line: u32, previous: &str) -> HunkDetail {
+        HunkDetail {
+            hunk: ChangeHunk {
+                path: path.to_owned(),
+                start_line,
+                end_line,
+                kind: ChangeKind::Modify,
+            },
+            previous_text: previous.to_owned(),
         }
     }
 
@@ -544,5 +659,88 @@ mod tests {
         let anchor = make_anchor("first\nsecond\n", &input).unwrap();
         assert_eq!(anchor.line_count, 1);
         assert_ne!(anchor.normalized_hash, "0".repeat(64));
+    }
+
+    #[test]
+    fn rejects_a_step_that_ends_past_the_end_of_the_file() {
+        let request = input("one", "file.rs", 1, 9);
+        assert!(make_anchor("only\n", &request).is_err());
+    }
+
+    #[test]
+    fn normalizes_carriage_returns_before_hashing() {
+        let request = input("one", "file.rs", 1, 2);
+        let unix = make_anchor("first\nsecond\n", &request).unwrap();
+        let windows = make_anchor("first\r\nsecond\r\n", &request).unwrap();
+        assert_eq!(unix.normalized_hash, windows.normalized_hash);
+    }
+
+    #[test]
+    fn reports_hunks_that_no_step_overlaps() {
+        let steps = vec![input("one", "src/lib.rs", 1, 3)];
+        let details = vec![
+            detail("src/lib.rs", 2, 2, "old"),
+            detail("src/other.rs", 7, 9, "gone"),
+        ];
+        let uncovered = uncovered_hunks(&steps, &details);
+        assert_eq!(uncovered.len(), 1);
+        assert_eq!(uncovered[0].path, "src/other.rs");
+        assert_eq!(describe_hunks(&uncovered), "src/other.rs:7-9");
+    }
+
+    #[test]
+    fn treats_backslash_paths_as_covering_their_forward_slash_hunks() {
+        let steps = vec![input("one", "src\\lib.rs", 1, 3)];
+        let details = vec![detail("src/lib.rs", 2, 2, "old")];
+        assert!(uncovered_hunks(&steps, &details).is_empty());
+    }
+
+    #[test]
+    fn joins_the_baseline_text_of_every_covered_hunk() {
+        let first = detail("src/lib.rs", 1, 1, "one");
+        let second = detail("src/lib.rs", 2, 2, "two");
+        assert_eq!(
+            previous_text(&[&first, &second]),
+            Some("one\ntwo".to_owned())
+        );
+    }
+
+    #[test]
+    fn reports_no_previous_text_when_every_covered_hunk_was_an_insertion() {
+        let inserted = detail("src/lib.rs", 1, 1, "");
+        assert_eq!(previous_text(&[&inserted]), None);
+    }
+
+    #[test]
+    fn truncates_previous_text_that_would_dominate_the_session_file() {
+        let long = detail(
+            "src/lib.rs",
+            1,
+            1,
+            &"x".repeat(MAX_PREVIOUS_TEXT_CHARACTERS + 10),
+        );
+        let text = previous_text(&[&long]).unwrap();
+        assert!(text.ends_with("… truncated"));
+        assert!(text.chars().count() < MAX_PREVIOUS_TEXT_CHARACTERS + 20);
+    }
+
+    #[test]
+    fn rejects_a_cycle_in_the_execution_flow() {
+        let steps = vec![step("a", &["b"]), step("b", &["a"])];
+        let error = flow_order(&steps, &["a".to_owned(), "b".to_owned()]).unwrap_err();
+        assert!(error.to_string().contains("cycle"));
+    }
+
+    #[test]
+    fn rejects_an_unknown_flow_predecessor() {
+        let steps = vec![step("a", &["missing"])];
+        assert!(flow_order(&steps, &["a".to_owned()]).is_err());
+    }
+
+    #[test]
+    fn falls_back_to_the_working_directory_outside_a_repository() {
+        let directory = tempfile::tempdir().unwrap();
+        let resolved = resolve_workspace_root(directory.path());
+        assert_eq!(resolved, directory.path());
     }
 }

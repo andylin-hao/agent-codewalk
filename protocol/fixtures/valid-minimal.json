@@ -35,6 +35,7 @@
   "changedHunks": [
     { "path": "src/lib.rs", "startLine": 4, "endLine": 7, "kind": "add" }
   ],
+  "uncoveredHunks": [],
   "excludedChanges": [],
   "degradedBaseline": false
 }

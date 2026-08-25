@@ -118,6 +118,7 @@ pub(crate) struct BaselineManifest {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
 pub struct Walkthrough {
     pub schema_version: u32,
     pub id: String,
@@ -131,12 +132,16 @@ pub struct Walkthrough {
     pub file_order: Vec<String>,
     pub flow_order: Vec<String>,
     pub changed_hunks: Vec<ChangeHunk>,
+    /// Hunks that no step explains. Only a degraded baseline may publish a
+    /// non-empty list; a complete baseline rejects publication instead.
+    pub uncovered_hunks: Vec<ChangeHunk>,
     pub excluded_changes: Vec<ExcludedChange>,
     pub degraded_baseline: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
 pub struct WalkthroughAgent {
     pub kind: AgentKind,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -145,6 +150,7 @@ pub struct WalkthroughAgent {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
 pub struct WalkthroughTask {
     pub id: String,
     pub goal: String,
@@ -154,6 +160,7 @@ pub struct WalkthroughTask {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
 pub struct WalkthroughStep {
     pub id: String,
     pub path: String,
@@ -163,10 +170,14 @@ pub struct WalkthroughStep {
     pub anchor: CodeAnchor,
     pub flow_after: Vec<String>,
     pub target_available: bool,
+    /// The baseline text this step replaced, present when a diff can be shown.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub previous_text: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
 pub struct CodeAnchor {
     pub start_line: u32,
     pub end_line: u32,
@@ -187,6 +198,7 @@ pub enum ChangeKind {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
 pub struct ChangeHunk {
     pub path: String,
     pub start_line: u32,
@@ -196,13 +208,32 @@ pub struct ChangeHunk {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
 pub struct ExcludedChange {
     pub path: String,
     pub reason: String,
 }
 
+/// A changed hunk together with the text it replaced, kept only in memory so that
+/// steps can carry a small "before" excerpt without storing whole source files.
+#[derive(Clone, Debug)]
+pub(crate) struct HunkDetail {
+    pub hunk: ChangeHunk,
+    pub previous_text: String,
+}
+
 #[derive(Debug)]
 pub(crate) struct DiffResult {
-    pub hunks: Vec<ChangeHunk>,
+    pub details: Vec<HunkDetail>,
     pub excluded: Vec<ExcludedChange>,
+}
+
+impl DiffResult {
+    /// Returns the published hunks without their baseline text.
+    pub(crate) fn hunks(&self) -> Vec<ChangeHunk> {
+        self.details
+            .iter()
+            .map(|detail| detail.hunk.clone())
+            .collect()
+    }
 }

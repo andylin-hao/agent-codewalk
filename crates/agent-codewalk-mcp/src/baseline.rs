@@ -14,7 +14,7 @@ use crate::{
     CodeWalkError, Result,
     model::{
         AgentKind, BaselineManifest, BeginTaskRequest, ChangeHunk, ChangeKind, DiffResult,
-        ExcludedChange,
+        ExcludedChange, HunkDetail,
     },
     storage::Storage,
 };
@@ -142,7 +142,7 @@ pub(crate) fn calculate_changes(
 ) -> Result<DiffResult> {
     if manifest.git_root.is_none() {
         return Ok(DiffResult {
-            hunks: Vec::new(),
+            details: Vec::new(),
             excluded: manifest.excluded_snapshots.clone(),
         });
     }
@@ -151,7 +151,7 @@ pub(crate) fn calculate_changes(
     candidates.extend(manifest.snapshots.keys().cloned());
     candidates.extend(manifest.baseline_absent.iter().cloned());
 
-    let mut hunks = Vec::new();
+    let mut details: Vec<HunkDetail> = Vec::new();
     let mut excluded = manifest.excluded_snapshots.clone();
     for relative_path in candidates {
         let absolute_path = resolve_workspace_path(workspace_root, &relative_path)?;
@@ -200,19 +200,19 @@ pub(crate) fn calculate_changes(
                 "current file is no longer valid UTF-8: {relative_path}"
             ))
         })?;
-        hunks.extend(diff_hunks(&relative_path, &old, &new));
+        details.extend(diff_hunks(&relative_path, &old, &new));
     }
 
-    hunks.sort_by(|left, right| {
-        (&left.path, left.start_line, left.end_line).cmp(&(
-            &right.path,
-            right.start_line,
-            right.end_line,
+    details.sort_by(|left, right| {
+        (&left.hunk.path, left.hunk.start_line, left.hunk.end_line).cmp(&(
+            &right.hunk.path,
+            right.hunk.start_line,
+            right.hunk.end_line,
         ))
     });
     excluded.sort_by(|left, right| left.path.cmp(&right.path));
     excluded.dedup_by(|left, right| left.path == right.path && left.reason == right.reason);
-    Ok(DiffResult { hunks, excluded })
+    Ok(DiffResult { details, excluded })
 }
 
 pub(crate) fn detect_renamed_destinations(
@@ -456,28 +456,40 @@ fn read_text_candidate(path: &Path) -> std::result::Result<Vec<u8>, String> {
     Ok(content)
 }
 
-fn diff_hunks(path: &str, old: &str, new: &str) -> Vec<ChangeHunk> {
+/// Converts a file pair into current-side hunks, each carrying the baseline text it
+/// replaced so that a step can show a "before" excerpt without a second Git call.
+fn diff_hunks(path: &str, old: &str, new: &str) -> Vec<HunkDetail> {
     let new_line_count = new.lines().count().max(1);
+    let old_lines: Vec<&str> = old.lines().collect();
     TextDiff::from_lines(old, new)
         .ops()
         .iter()
         .filter_map(|operation| {
-            let (kind, new_range) = match operation.tag() {
+            let kind = match operation.tag() {
                 DiffTag::Equal => return None,
-                DiffTag::Insert => (ChangeKind::Add, operation.new_range()),
-                DiffTag::Delete => (ChangeKind::Delete, operation.new_range()),
-                DiffTag::Replace => (ChangeKind::Modify, operation.new_range()),
+                DiffTag::Insert => ChangeKind::Add,
+                DiffTag::Delete => ChangeKind::Delete,
+                DiffTag::Replace => ChangeKind::Modify,
             };
+            let new_range = operation.new_range();
             let start_line = u32::try_from((new_range.start + 1).min(new_line_count))
                 .expect("text file line count is bounded by the file-size limit");
             let end_line =
                 u32::try_from(new_range.end.max(start_line as usize).min(new_line_count))
                     .expect("text file line count is bounded by the file-size limit");
-            Some(ChangeHunk {
-                path: path.to_owned(),
-                start_line,
-                end_line,
-                kind,
+            let old_range = operation.old_range();
+            let previous_text = old_lines
+                .get(old_range.start..old_range.end.min(old_lines.len()))
+                .unwrap_or_default()
+                .join("\n");
+            Some(HunkDetail {
+                hunk: ChangeHunk {
+                    path: path.to_owned(),
+                    start_line,
+                    end_line,
+                    kind,
+                },
+                previous_text,
             })
         })
         .collect()
@@ -510,10 +522,32 @@ mod tests {
 
     #[test]
     fn creates_current_side_ranges_for_replacements_and_deletions() {
-        let hunks = diff_hunks("src/lib.rs", "one\ntwo\nthree\n", "one\nchanged\n");
-        assert_eq!(hunks.len(), 1);
-        assert_eq!(hunks[0].kind, ChangeKind::Modify);
-        assert_eq!((hunks[0].start_line, hunks[0].end_line), (2, 2));
+        let details = diff_hunks("src/lib.rs", "one\ntwo\nthree\n", "one\nchanged\n");
+        assert_eq!(details.len(), 1);
+        assert_eq!(details[0].hunk.kind, ChangeKind::Modify);
+        assert_eq!(
+            (details[0].hunk.start_line, details[0].hunk.end_line),
+            (2, 2)
+        );
+    }
+
+    #[test]
+    fn keeps_the_replaced_lines_as_the_previous_text() {
+        let details = diff_hunks("src/lib.rs", "one\ntwo\nthree\n", "one\nchanged\n");
+        assert_eq!(details[0].previous_text, "two\nthree");
+    }
+
+    #[test]
+    fn reports_no_previous_text_for_a_pure_insertion() {
+        let details = diff_hunks("src/lib.rs", "one\n", "one\ntwo\n");
+        assert_eq!(details.len(), 1);
+        assert_eq!(details[0].hunk.kind, ChangeKind::Add);
+        assert!(details[0].previous_text.is_empty());
+    }
+
+    #[test]
+    fn reports_an_empty_diff_for_identical_content() {
+        assert!(diff_hunks("src/lib.rs", "same\n", "same\n").is_empty());
     }
 
     #[test]

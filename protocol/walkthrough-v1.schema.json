@@ -17,6 +17,7 @@
     "fileOrder",
     "flowOrder",
     "changedHunks",
+    "uncoveredHunks",
     "excludedChanges",
     "degradedBaseline"
   ],
@@ -64,6 +65,11 @@
       "uniqueItems": true
     },
     "changedHunks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/hunk" }
+    },
+    "uncoveredHunks": {
+      "description": "Changed hunks that no step explains. Non-empty only when degradedBaseline is true.",
       "type": "array",
       "items": { "$ref": "#/$defs/hunk" }
     },
@@ -119,7 +125,13 @@
           "items": { "type": "string", "minLength": 1 },
           "uniqueItems": true
         },
-        "targetAvailable": { "type": "boolean" }
+        "targetAvailable": { "type": "boolean" },
+        "previousText": {
+          "description": "Baseline text this step replaced, used to render a per-step diff.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4100
+        }
       }
     },
     "hunk": {

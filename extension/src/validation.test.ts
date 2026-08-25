@@ -1,152 +1,142 @@
 import { readFileSync } from "node:fs";
 
-import Ajv2020 from "ajv/dist/2020.js";
+import Ajv2020, { type ValidateFunction } from "ajv/dist/2020.js";
 import { describe, expect, it } from "vitest";
 
 import { parseWalkthrough } from "./validation.js";
 
-const valid = {
-  schemaVersion: 1,
-  id: "session",
-  workspaceFingerprint: "a".repeat(64),
-  title: "Change",
-  summary: "Summary",
-  agent: { kind: "codex" },
-  task: {
-    id: "task",
-    goal: "goal",
-    startedAt: "2026-01-01T00:00:00Z",
-    completedAt: "2026-01-01T00:01:00Z",
-  },
-  createdAt: "2026-01-01T00:01:00Z",
-  steps: [
-    {
-      id: "step",
-      path: "src/main.ts",
-      title: "Step",
-      explanation: "Explanation",
-      changeKind: "modify",
-      anchor: {
-        startLine: 1,
-        endLine: 1,
-        lineCount: 1,
-        normalizedHash: "b".repeat(64),
-      },
-      flowAfter: [],
-      targetAvailable: true,
-    },
-  ],
-  fileOrder: ["step"],
-  flowOrder: ["step"],
-  changedHunks: [{ path: "src/main.ts", startLine: 1, endLine: 1, kind: "modify" }],
-  excludedChanges: [],
-  degradedBaseline: false,
-};
+type JsonObject = Record<string, unknown>;
+
+interface NegativeCase {
+  readonly name: string;
+  /**
+   * Which layer first rejects the document:
+   * - `deserialization`: the JSON Schema, this validator, and Rust `serde` all reject it.
+   * - `schema`: the JSON Schema and this validator reject it; Rust enforces it at publish time.
+   * - `semantics`: the JSON Schema accepts it and only this validator rejects it.
+   */
+  readonly layer: "deserialization" | "schema" | "semantics";
+  readonly expect: string;
+  readonly set?: Readonly<Record<string, unknown>>;
+  readonly delete?: readonly string[];
+}
+
+interface NegativeFixture {
+  readonly base: JsonObject;
+  readonly cases: readonly NegativeCase[];
+}
+
+function readFixture<T>(name: string): T {
+  return JSON.parse(
+    readFileSync(new URL(`../../protocol/fixtures/${name}`, import.meta.url), "utf8"),
+  ) as T;
+}
+
+const schema = readFixture<object>("../walkthrough-v1.schema.json");
+const validMinimal = readFixture<unknown>("valid-minimal.json");
+const negative = readFixture<NegativeFixture>("invalid.json");
+const validateAgainstSchema: ValidateFunction = new Ajv2020({
+  strict: true,
+  validateFormats: false,
+}).compile(schema);
+
+/** Applies a case mutation, addressing nested values with dotted paths. */
+function mutate(base: JsonObject, testCase: NegativeCase): JsonObject {
+  const document = structuredClone(base);
+  for (const [path, value] of Object.entries(testCase.set ?? {})) {
+    assign(document, path.split("."), value);
+  }
+  for (const path of testCase.delete ?? []) {
+    assign(document, path.split("."), undefined);
+  }
+  return document;
+}
+
+function assign(target: unknown, segments: readonly string[], value: unknown): void {
+  const [head, ...rest] = segments;
+  if (head === undefined) {
+    throw new Error("a fixture path must not be empty");
+  }
+  if (typeof target !== "object" || target === null) {
+    throw new Error(`fixture path does not address an object: ${segments.join(".")}`);
+  }
+  const container = target as JsonObject;
+  if (rest.length === 0) {
+    if (value === undefined) {
+      delete container[head];
+    } else {
+      container[head] = value;
+    }
+    return;
+  }
+  assign(container[head], rest, value);
+}
 
 describe("parseWalkthrough", () => {
-  it("accepts the shared cross-language fixture", () => {
-    const fixture: unknown = JSON.parse(
-      readFileSync(new URL("../../protocol/fixtures/valid-minimal.json", import.meta.url), "utf8"),
+  it("accepts the shared minimal fixture and the schema agrees", () => {
+    expect(parseWalkthrough(validMinimal).fileOrder).toEqual(["ready"]);
+    expect(validateAgainstSchema(validMinimal), JSON.stringify(validateAgainstSchema.errors)).toBe(
+      true,
     );
-    expect(parseWalkthrough(fixture).fileOrder).toEqual(["ready"]);
-    const schema: object = JSON.parse(
-      readFileSync(new URL("../../protocol/walkthrough-v1.schema.json", import.meta.url), "utf8"),
-    ) as object;
-    const validate = new Ajv2020({ strict: true, validateFormats: false }).compile(schema);
-    expect(validate(fixture), JSON.stringify(validate.errors)).toBe(true);
   });
 
-  it("accepts a complete v1 document", () => {
-    expect(parseWalkthrough(valid).id).toBe("session");
+  it("accepts the multi-step negative-fixture base", () => {
+    const parsed = parseWalkthrough(negative.base);
+    expect(parsed.steps).toHaveLength(2);
+    expect(parsed.flowOrder).toEqual(["ready", "caller"]);
+    expect(validateAgainstSchema(negative.base), JSON.stringify(validateAgainstSchema.errors)).toBe(
+      true,
+    );
   });
 
-  it("rejects traversal paths", () => {
-    const value = structuredClone(valid);
-    const firstStep = value.steps.at(0);
-    if (firstStep === undefined) {
-      throw new Error("test fixture has no steps");
-    }
-    firstStep.path = "../secret";
-    expect(() => parseWalkthrough(value)).toThrow(/parent traversal/u);
+  it("covers every enforcement layer", () => {
+    const layers = new Set(negative.cases.map((testCase) => testCase.layer));
+    expect([...layers].sort()).toEqual(["deserialization", "schema", "semantics"]);
   });
 
-  it("requires each order to contain every step", () => {
-    const value = structuredClone(valid);
-    value.flowOrder = [];
-    expect(() => parseWalkthrough(value)).toThrow(/every step exactly once/u);
+  it.each(negative.cases.map((testCase) => [testCase.name, testCase] as const))(
+    "rejects %s",
+    (_name, testCase) => {
+      const document = mutate(negative.base, testCase);
+      expect(() => parseWalkthrough(document)).toThrow(testCase.expect);
+    },
+  );
+
+  it.each(negative.cases.map((testCase) => [testCase.name, testCase] as const))(
+    "agrees with the JSON Schema about %s",
+    (_name, testCase) => {
+      const document = mutate(negative.base, testCase);
+      const accepted = validateAgainstSchema(document);
+      expect(accepted).toBe(testCase.layer === "semantics");
+    },
+  );
+
+  it("keeps an optional previous-text excerpt", () => {
+    const document = structuredClone(negative.base);
+    assign(document, ["steps", "0", "previousText"], "let ready = false;");
+    expect(parseWalkthrough(document).steps[0]?.previousText).toBe("let ready = false;");
+    expect(validateAgainstSchema(document)).toBe(true);
   });
 
-  it.each([
-    ["schema version", { ...valid, schemaVersion: 2 }, /schemaVersion/u],
-    ["empty steps", { ...valid, steps: [], fileOrder: [], flowOrder: [] }, /must not be empty/u],
-    ["bad hash", { ...valid, workspaceFingerprint: "bad" }, /SHA-256/u],
-    ["bad date", { ...valid, createdAt: "not-a-date" }, /ISO date-time/u],
-    ["bad agent", { ...valid, agent: { kind: "unknown" } }, /unsupported value/u],
-    ["non-array order", { ...valid, fileOrder: null }, /must be an array/u],
-    ["empty title", { ...valid, title: "" }, /non-empty string/u],
-    ["bad boolean", { ...valid, degradedBaseline: "false" }, /must be a boolean/u],
-  ])("rejects %s", (_name, value, expected) => {
-    expect(() => parseWalkthrough(value)).toThrow(expected);
+  it("rejects a previous-text excerpt longer than the companion can emit", () => {
+    const document = structuredClone(negative.base);
+    assign(document, ["steps", "0", "previousText"], "x".repeat(4_101));
+    expect(() => parseWalkthrough(document)).toThrow(/at most 4100 characters/u);
   });
 
-  it("rejects invalid ranges and duplicate order entries", () => {
-    const range = structuredClone(valid);
-    const step = range.steps.at(0);
-    if (step === undefined) {
-      throw new Error("test fixture has no steps");
-    }
-    step.anchor.endLine = 0;
-    expect(() => parseWalkthrough(range)).toThrow(/positive integer/u);
-
-    const duplicate = structuredClone(valid);
-    duplicate.fileOrder = ["step", "step"];
-    expect(() => parseWalkthrough(duplicate)).toThrow(/every step exactly once/u);
+  it("reports the failing field in the message", () => {
+    const document = structuredClone(negative.base);
+    assign(document, ["steps", "1", "anchor", "normalizedHash"], "short");
+    expect(() => parseWalkthrough(document)).toThrow(/steps\[1\]\.anchor\.normalizedHash/u);
   });
 
-  it("rejects absolute paths and unknown ordered steps", () => {
-    const absolute = structuredClone(valid);
-    const step = absolute.steps.at(0);
-    if (step === undefined) {
-      throw new Error("test fixture has no steps");
-    }
-    step.path = "/etc/passwd";
-    expect(() => parseWalkthrough(absolute)).toThrow(/relative/u);
-
-    const unknown = structuredClone(valid);
-    unknown.flowOrder = ["missing"];
-    expect(() => parseWalkthrough(unknown)).toThrow(/unknown step/u);
-  });
-
-  it("rejects unknown protocol properties and inconsistent anchor metadata", () => {
-    expect(() => parseWalkthrough({ ...valid, unexpected: true })).toThrow(/unknown property/u);
-
-    const inconsistent = structuredClone(valid);
-    const step = inconsistent.steps.at(0);
-    if (step === undefined) {
-      throw new Error("test fixture has no steps");
-    }
-    step.anchor.lineCount = 2;
-    expect(() => parseWalkthrough(inconsistent)).toThrow(/lineCount must match/u);
-  });
-
-  it("requires flow order to respect unique known predecessors", () => {
-    const first = valid.steps.at(0);
-    if (first === undefined) {
-      throw new Error("test fixture has no steps");
-    }
-    const duplicate = {
-      ...structuredClone(valid),
-      steps: [{ ...structuredClone(first), flowAfter: ["missing", "missing"] }],
-    };
-    expect(() => parseWalkthrough(duplicate)).toThrow(/unique values/u);
-
-    const second = { ...structuredClone(first), id: "second", flowAfter: ["step"] };
-    const reversed = {
-      ...structuredClone(valid),
-      steps: [structuredClone(first), second],
-      fileOrder: ["step", "second"],
-      flowOrder: ["second", "step"],
-    };
-    expect(() => parseWalkthrough(reversed)).toThrow(/does not place/u);
+  it("accepts uncovered hunks on a degraded session", () => {
+    const document = structuredClone(negative.base);
+    assign(document, ["degradedBaseline"], true);
+    assign(document, ["uncoveredHunks"], [
+      { path: "src/other.rs", startLine: 1, endLine: 2, kind: "modify" },
+    ]);
+    expect(parseWalkthrough(document).uncoveredHunks).toHaveLength(1);
+    expect(validateAgainstSchema(document)).toBe(true);
   });
 });

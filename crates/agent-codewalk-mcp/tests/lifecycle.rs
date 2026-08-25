@@ -247,6 +247,114 @@ fn lists_generated_changes_without_requiring_a_highlight_step() {
     assert!(result.excluded_changes[0].reason.contains("generated"));
 }
 
+#[test]
+fn records_uncovered_hunks_instead_of_failing_on_a_degraded_baseline() {
+    let workspace = tempdir().unwrap();
+    let state = tempdir().unwrap();
+    initialize_repository(workspace.path());
+    fs::write(
+        workspace.path().join("src/lib.rs"),
+        "pub fn value() -> i32 {\n    9\n}\n",
+    )
+    .unwrap();
+    fs::write(workspace.path().join("src/extra.rs"), "pub fn extra() {}\n").unwrap();
+    let service = CodeWalkService::new(
+        workspace.path(),
+        Storage::new(state.path().to_owned()).unwrap(),
+    )
+    .unwrap();
+
+    let result = service
+        .publish_walkthrough(PublishWalkthroughRequest {
+            task_id: None,
+            title: "Change value".to_owned(),
+            summary: "The value changed but a second file was not explained.".to_owned(),
+            steps: vec![StepInput {
+                id: "value".to_owned(),
+                path: "src/lib.rs".to_owned(),
+                start_line: 1,
+                end_line: 3,
+                title: "Update the default".to_owned(),
+                explanation: "The helper returns the requested default.".to_owned(),
+                flow_after: Vec::new(),
+                symbol: None,
+            }],
+            goal: Some("Update the default value".to_owned()),
+            agent: AgentKind::Opencode,
+            session_id: None,
+        })
+        .unwrap();
+
+    assert!(
+        result
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("src/extra.rs")),
+        "the reader must be told which change has no explanation: {:?}",
+        result.warnings
+    );
+    let walkthrough: Walkthrough =
+        serde_json::from_slice(&fs::read(result.session_path).unwrap()).unwrap();
+    assert!(walkthrough.degraded_baseline);
+    assert_eq!(walkthrough.uncovered_hunks.len(), 1);
+    assert_eq!(walkthrough.uncovered_hunks[0].path, "src/extra.rs");
+}
+
+#[test]
+fn records_the_replaced_text_so_a_step_can_show_a_diff() {
+    let workspace = tempdir().unwrap();
+    let state = tempdir().unwrap();
+    initialize_repository(workspace.path());
+    let service = CodeWalkService::new(
+        workspace.path(),
+        Storage::new(state.path().to_owned()).unwrap(),
+    )
+    .unwrap();
+    let task = service
+        .begin_task(BeginTaskRequest {
+            goal: "Change the default value".to_owned(),
+            title: None,
+            agent: AgentKind::Codex,
+            session_id: None,
+        })
+        .unwrap();
+    fs::write(
+        workspace.path().join("src/lib.rs"),
+        "pub fn value() -> i32 {\n    7\n}\n",
+    )
+    .unwrap();
+
+    let result = service
+        .publish_walkthrough(PublishWalkthroughRequest {
+            task_id: Some(task.task_id),
+            title: "Change the default".to_owned(),
+            summary: "The helper returns a new default.".to_owned(),
+            steps: vec![StepInput {
+                id: "value".to_owned(),
+                path: "src/lib.rs".to_owned(),
+                start_line: 2,
+                end_line: 2,
+                title: "Return the new default".to_owned(),
+                explanation: "Callers now observe the updated default.".to_owned(),
+                flow_after: Vec::new(),
+                symbol: None,
+            }],
+            goal: None,
+            agent: AgentKind::Codex,
+            session_id: None,
+        })
+        .unwrap();
+
+    let walkthrough: Walkthrough =
+        serde_json::from_slice(&fs::read(result.session_path).unwrap()).unwrap();
+    assert_eq!(
+        walkthrough.steps[0].previous_text.as_deref(),
+        Some("    1"),
+        "the step must carry the line it replaced"
+    );
+    assert!(walkthrough.uncovered_hunks.is_empty());
+}
+
 fn initialize_repository(workspace: &Path) {
     fs::create_dir_all(workspace.join("src")).unwrap();
     fs::write(

@@ -1,0 +1,257 @@
+{
+  "comment": "Shared negative contract. Every case mutates base and must be rejected by the TypeScript validator with a message containing expect. layer=deserialization is additionally rejected by Rust deserialization and by the JSON Schema; layer=schema is rejected by the JSON Schema but reaches Rust at publish time instead of read time; layer=semantics satisfies the JSON Schema and is enforced only by the validator.",
+  "base": {
+    "schemaVersion": 1,
+    "id": "session",
+    "workspaceFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "title": "Add readiness helper",
+    "summary": "Callers can query readiness.",
+    "agent": {
+      "kind": "codex"
+    },
+    "task": {
+      "id": "task",
+      "goal": "Add a readiness helper",
+      "startedAt": "2026-01-01T00:00:00Z",
+      "completedAt": "2026-01-01T00:01:00Z"
+    },
+    "createdAt": "2026-01-01T00:01:00Z",
+    "steps": [
+      {
+        "id": "ready",
+        "path": "src/lib.rs",
+        "title": "Expose readiness",
+        "explanation": "The helper exposes the current readiness state.",
+        "changeKind": "add",
+        "anchor": {
+          "startLine": 5,
+          "endLine": 7,
+          "lineCount": 3,
+          "normalizedHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "flowAfter": [],
+        "targetAvailable": true
+      },
+      {
+        "id": "caller",
+        "path": "src/main.rs",
+        "title": "Call the helper",
+        "explanation": "The entry point now consults the helper before starting.",
+        "changeKind": "modify",
+        "anchor": {
+          "startLine": 2,
+          "endLine": 2,
+          "lineCount": 1,
+          "normalizedHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "flowAfter": [
+          "ready"
+        ],
+        "targetAvailable": true
+      }
+    ],
+    "fileOrder": [
+      "ready",
+      "caller"
+    ],
+    "flowOrder": [
+      "ready",
+      "caller"
+    ],
+    "changedHunks": [
+      {
+        "path": "src/lib.rs",
+        "startLine": 5,
+        "endLine": 7,
+        "kind": "add"
+      }
+    ],
+    "uncoveredHunks": [],
+    "excludedChanges": [],
+    "degradedBaseline": false
+  },
+  "cases": [
+    {
+      "name": "unknown-top-level-property",
+      "layer": "deserialization",
+      "expect": "unknown property",
+      "set": {
+        "unexpected": true
+      }
+    },
+    {
+      "name": "missing-uncovered-hunks",
+      "layer": "deserialization",
+      "expect": "uncoveredHunks must be an array",
+      "delete": [
+        "uncoveredHunks"
+      ]
+    },
+    {
+      "name": "future-schema-version",
+      "layer": "schema",
+      "expect": "schemaVersion",
+      "set": {
+        "schemaVersion": 2
+      }
+    },
+    {
+      "name": "fingerprint-is-not-a-hash",
+      "layer": "schema",
+      "expect": "SHA-256",
+      "set": {
+        "workspaceFingerprint": "not-a-hash"
+      }
+    },
+    {
+      "name": "unknown-agent-kind",
+      "layer": "deserialization",
+      "expect": "unsupported value",
+      "set": {
+        "agent.kind": "gemini"
+      }
+    },
+    {
+      "name": "unknown-change-kind",
+      "layer": "deserialization",
+      "expect": "unsupported value",
+      "set": {
+        "steps.0.changeKind": "moved"
+      }
+    },
+    {
+      "name": "degraded-baseline-is-not-a-boolean",
+      "layer": "deserialization",
+      "expect": "must be a boolean",
+      "set": {
+        "degradedBaseline": "false"
+      }
+    },
+    {
+      "name": "anchor-start-line-is-zero",
+      "layer": "schema",
+      "expect": "positive integer",
+      "set": {
+        "steps.0.anchor.startLine": 0
+      }
+    },
+    {
+      "name": "unknown-step-property",
+      "layer": "deserialization",
+      "expect": "unknown property",
+      "set": {
+        "steps.0.rationale": "extra"
+      }
+    },
+    {
+      "name": "empty-step-list",
+      "layer": "schema",
+      "expect": "must not be empty",
+      "set": {
+        "steps": [],
+        "fileOrder": [],
+        "flowOrder": []
+      }
+    },
+    {
+      "name": "parent-traversal-path",
+      "layer": "semantics",
+      "expect": "parent traversal",
+      "set": {
+        "steps.0.path": "../secret.rs"
+      }
+    },
+    {
+      "name": "absolute-path",
+      "layer": "semantics",
+      "expect": "relative",
+      "set": {
+        "steps.0.path": "/etc/passwd"
+      }
+    },
+    {
+      "name": "line-count-disagrees-with-range",
+      "layer": "semantics",
+      "expect": "lineCount must match",
+      "set": {
+        "steps.0.anchor.lineCount": 9
+      }
+    },
+    {
+      "name": "file-order-misses-a-step",
+      "layer": "semantics",
+      "expect": "every step exactly once",
+      "set": {
+        "fileOrder": [
+          "ready"
+        ]
+      }
+    },
+    {
+      "name": "flow-order-contradicts-dependency",
+      "layer": "semantics",
+      "expect": "does not place",
+      "set": {
+        "flowOrder": [
+          "caller",
+          "ready"
+        ]
+      }
+    },
+    {
+      "name": "flow-order-references-an-unknown-step",
+      "layer": "semantics",
+      "expect": "unknown step",
+      "set": {
+        "flowOrder": [
+          "ready",
+          "missing"
+        ]
+      }
+    },
+    {
+      "name": "step-depends-on-itself",
+      "layer": "semantics",
+      "expect": "cannot depend on itself",
+      "set": {
+        "steps.1.flowAfter": [
+          "caller"
+        ]
+      }
+    },
+    {
+      "name": "duplicate-flow-predecessors",
+      "layer": "schema",
+      "expect": "unique values",
+      "set": {
+        "steps.1.flowAfter": [
+          "ready",
+          "ready"
+        ]
+      }
+    },
+    {
+      "name": "uncovered-hunks-without-a-degraded-baseline",
+      "layer": "semantics",
+      "expect": "only allowed when degradedBaseline",
+      "set": {
+        "uncoveredHunks": [
+          {
+            "path": "src/other.rs",
+            "startLine": 1,
+            "endLine": 2,
+            "kind": "modify"
+          }
+        ]
+      }
+    },
+    {
+      "name": "hunk-range-is-inverted",
+      "layer": "semantics",
+      "expect": "must not precede startLine",
+      "set": {
+        "changedHunks.0.startLine": 9
+      }
+    }
+  ]
+}
