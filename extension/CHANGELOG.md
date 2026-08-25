@@ -1,5 +1,124 @@
 # Changelog
 
+## 0.7.3
+
+- **The expansion arrow reads at a glance.** It was a small, low-contrast glyph that
+  swapped between two characters; it is now a single chevron that turns, at the editor's
+  icon colour and full row size, with a hover and focus state. The rotation is driven by
+  `aria-expanded`, so what the reader sees and what a screen reader is told come from one
+  value and cannot drift apart.
+
+## 0.7.2
+
+- **A second click folds a step away.** Clicking the step already in front of you now
+  closes it instead of doing nothing, so one gesture both opens and closes a level. Only
+  a click behaves this way: a code lens, the search, and the step commands still reveal
+  and never fold, because collapsing something the reader was not looking at would undo
+  work they did not ask about.
+
+## 0.7.1
+
+- **Clicking a step now opens its detail.** Selecting a parent revealed its ancestors but
+  not its own children, so a click on a top-level row appeared to do nothing. Choosing a
+  step is the same intent as reading on, and `next` already opened it; the two now agree.
+  The triangle remains the way to fold a step away again.
+- **The by-file list gained the same disclosure control.** It hid a collapsed subtree
+  exactly like the graph but offered no way to open one, so a reader who switched views
+  saw a shortened list with no explanation and no control.
+
+## 0.7.0
+
+### A stale companion says so
+
+- Each session now records the companion version that published it, and the sidebar warns
+  when that is behind the installed extension. An agent keeps the companion process it
+  started with, so installing a new release does not update what a running session
+  publishes through — the walkthrough simply arrives without the newer features, which
+  reads as a broken feature rather than an agent that needs restarting.
+- **Diagnose Installation** reports the version the extension ships, which is the number
+  the warning compares against.
+- `companionVersion` is an optional addition to the schema, so earlier sessions still
+  load and produce no warning.
+
+## 0.6.1
+
+- **Next now opens a step instead of stepping over it.** Reading on through a closed
+  parent reveals its detail rather than jumping to the next sibling, so every level is
+  reachable from the keyboard alone. Previously anything below `initialDepth` could only
+  be reached with a mouse, which made deep walkthroughs unreadable by their main control.
+
+## 0.6.0
+
+### Nested walkthroughs
+
+- A step may now name another as its `parentId`, so a walkthrough arrives as a handful of
+  top-level steps carrying the overall flow, each opening into the detail beneath it. A
+  fifty-step change is no longer a fifty-row list.
+- Nesting is arbitrarily deep by design, capped at eight levels as a guard. Two levels is
+  what the skill asks for and what `agentCodeWalk.initialDepth` opens by default.
+- A step with children may omit its range and inherit the block of its first child in the
+  same file, for a parent that is genuinely represented by the first thing under it.
+- `flowAfter` may only name a sibling. Execution order is a property of one level, which
+  is what keeps the graph readable instead of drawing edges across the whole walkthrough.
+- `Alt+]` and `Alt+[` move between the steps you can see, so a closed subtree is skipped
+  rather than walked. Selecting a step from search or a code lens reveals it.
+- New **Expand All Steps** and **Collapse All Steps** commands, and a collapse control in
+  the view title.
+
+### One less view
+
+- The flat execution-flow list is gone. The graph now shows that order one level at a
+  time, with more information and a way to close what you are not reading, so the list
+  had nothing left to offer. `Alt+\` toggles the graph and the by-file list.
+
+### Protocol
+
+- `parentId` and `depth` are optional additions to the step schema. Sessions published by
+  0.5.x and earlier still load, as flat walkthroughs.
+
+## 0.5.0
+
+### Reading a change in place
+
+- The lines a step actually changed are now highlighted inside the block, in their diff
+  color, while the rest of the block stays neutral. Finding the change no longer means
+  opening the comparison, which stays available as **Compare with before**.
+- A step's dot is a dot again. It carried the badge classes for its color and inherited
+  their padding and border with it, which drew an empty capsule wherever a dot appeared
+  outside the step list.
+
+### Graph
+
+- The graph is a vertical rail: one step per row with the full width for its title, and
+  dependencies drawn as lanes down a left gutter. The previous layered layout put every
+  independent step on one row, which was legible at six steps and unreadable at fifty.
+- A lane is reused as soon as nothing depends on the step holding it, so a straight chain
+  stays a single line and the gutter only widens where the work actually branches.
+- **Flow** is the default view, and the flat execution-flow list it names is unchanged.
+  It reads the same at any size, which the graph cannot promise.
+
+## 0.4.0
+
+### Workflow graph
+
+- A third view in the sidebar draws the execution-flow order as a graph instead of a
+  list. Steps that share a row have no dependency between them; every line points down
+  to what depends on it, and every node opens its step. `Alt+\` now cycles the three
+  views rather than toggling two.
+- The current step's explanation sits directly under the navigation controls. The
+  walkthrough summary moved below it into a collapsed **Walkthrough overview**, because
+  the block being read is what the reader came for.
+
+### Explanation quality
+
+- The skill and the MCP server instructions now set how a walkthrough is written: one
+  idea per step, 5 to 25 lines per range and 40 at the most, three or four sentences
+  covering what the block does, why, and what depends on it.
+- Every step of a change walkthrough must state the reason for the change, not only what
+  changed.
+- Explanations are written in the language the user is writing in, following that
+  language's own conventions.
+
 ## 0.3.0
 
 ### Explanation walkthroughs

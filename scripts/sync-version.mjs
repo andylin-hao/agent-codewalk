@@ -37,7 +37,7 @@ const sources = [
   {
     file: "extension/src/installer.ts",
     label: "installer companion directory",
-    pattern: /^(?<indent>const VERSION = ")(?<version>[^"]+)(?=")/m,
+    pattern: /^(?<indent>(?:export )?const VERSION = ")(?<version>[^"]+)(?=")/m,
   },
 ];
 

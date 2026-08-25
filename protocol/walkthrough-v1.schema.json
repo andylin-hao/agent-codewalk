@@ -24,6 +24,11 @@
   ],
   "properties": {
     "schemaVersion": { "const": 1 },
+    "companionVersion": {
+      "description": "The companion that published this session. Absent before it was recorded.",
+      "type": "string",
+      "minLength": 1
+    },
     "kind": {
       "description": "change: explains what a task modified. explanation: a tour of code that was not modified.",
       "enum": ["change", "explanation"]
@@ -120,6 +125,18 @@
       ],
       "properties": {
         "id": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "parentId": {
+          "description": "The step this one details. Absent at the top level.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "depth": {
+          "description": "Distance from the top level. Absent in a session published before nesting existed.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8
+        },
         "path": { "type": "string", "minLength": 1 },
         "title": { "type": "string", "minLength": 1, "maxLength": 200 },
         "explanation": { "type": "string", "minLength": 1, "maxLength": 10000 },

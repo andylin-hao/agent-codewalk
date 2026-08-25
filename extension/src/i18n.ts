@@ -15,8 +15,10 @@ export interface Messages {
   readonly previous: string;
   readonly next: string;
   readonly orderByFile: string;
-  readonly orderByFlow: string;
+  readonly orderByGraph: string;
+  readonly graphLead: string;
   readonly keyboardHint: string;
+  readonly overview: string;
   readonly compare: string;
   readonly allSteps: string;
   readonly sessionLabel: string;
@@ -28,6 +30,7 @@ export interface Messages {
   readonly staleNotice: string;
   readonly relocatedNotice: string;
   readonly degradedNotice: string;
+  readonly staleCompanionNotice: string;
   readonly uncoveredNotice: string;
   readonly excludedNotice: string;
   readonly publishedNotice: string;
@@ -56,8 +59,10 @@ const english: Messages = {
   previous: "Previous",
   next: "Next",
   orderByFile: "By file",
-  orderByFlow: "Execution flow",
-  keyboardHint: "Alt+[ and Alt+] move between steps.",
+  orderByGraph: "Graph",
+  graphLead: "Click a step with a triangle to read its detail, and click it again to fold it away. The lines on the left join a step to what depends on it.",
+  keyboardHint: "Alt+] reads on, opening a step to show its detail. Alt+\\ switches the view.",
+  overview: "Walkthrough overview",
   compare: "Compare with before",
   allSteps: "All steps",
   sessionLabel: "Walkthrough",
@@ -70,6 +75,8 @@ const english: Messages = {
   relocatedNotice: "The block moved. Agent CodeWalk found exactly one match and highlighted it.",
   degradedNotice:
     "Published without a complete baseline, so the scope may include earlier changes.",
+  staleCompanionNotice:
+    "Published by companion {0}, but {1} is installed. Restart your agent session so it picks up the new companion; until then its walkthroughs will lack the newer features.",
   uncoveredNotice: "Changes with no explanation:",
   excludedNotice: "Changed but not shown as code:",
   publishedNotice: "Agent CodeWalk: “{0}” is ready with {1} step(s).",
@@ -102,8 +109,10 @@ const simplifiedChinese: Messages = {
   previous: "上一步",
   next: "下一步",
   orderByFile: "按文件",
-  orderByFlow: "按执行流",
-  keyboardHint: "Alt+[ 与 Alt+] 可在步骤间移动。",
+  orderByGraph: "流程图",
+  graphLead: "点击带三角的步骤即可阅读其下更细的步骤，再点一次收起；左侧的连线把一个步骤连到依赖它的步骤。",
+  keyboardHint: "Alt+] 继续往下读，遇到可展开的步骤会自动展开；Alt+\\ 可切换视图。",
+  overview: "整体说明",
   compare: "与修改前对比",
   allSteps: "全部步骤",
   sessionLabel: "讲解",
@@ -115,6 +124,8 @@ const simplifiedChinese: Messages = {
   staleNotice: "该代码块在发布后移动或改变，因此没有高亮任何位置。",
   relocatedNotice: "代码块已移动。Agent CodeWalk 找到唯一匹配并高亮了它。",
   degradedNotice: "发布时没有完整的 baseline，范围可能包含更早的修改。",
+  staleCompanionNotice:
+    "该讲解由 companion {0} 发布，但当前安装的是 {1}。请重启 Agent 会话以加载新的 companion；在此之前它发布的讲解不会包含新功能。",
   uncoveredNotice: "没有讲解的修改：",
   excludedNotice: "有修改但不作为代码展示：",
   publishedNotice: "Agent CodeWalk：“{0}”已就绪，共 {1} 步。",

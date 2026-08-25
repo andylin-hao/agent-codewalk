@@ -25,6 +25,8 @@ export interface StepOptions {
   readonly flowAfter?: readonly string[];
   readonly targetAvailable?: boolean;
   readonly previousText?: string;
+  readonly parentId?: string;
+  readonly depth?: number;
 }
 
 export interface WalkthroughOptions {
@@ -34,6 +36,7 @@ export interface WalkthroughOptions {
   readonly createdAt?: string;
   readonly degradedBaseline?: boolean;
   readonly uncoveredHunks?: readonly ChangeHunk[];
+  readonly companionVersion?: string;
   readonly fileOrder?: readonly string[];
   readonly flowOrder?: readonly string[];
 }
@@ -55,6 +58,8 @@ export function buildStep(options: StepOptions): WalkthroughStep {
     path: options.path,
     title: options.title ?? `Step ${options.id}`,
     explanation: options.explanation ?? `Explanation for ${options.id}.`,
+    depth: options.depth ?? 0,
+    ...(options.parentId === undefined ? {} : { parentId: options.parentId }),
     changeKind: options.changeKind ?? "modify",
     anchor: {
       startLine: options.startLine,
@@ -76,6 +81,9 @@ export function buildWalkthrough(
   const identifiers = steps.map((step) => step.id);
   return {
     schemaVersion: 1,
+    ...(options.companionVersion === undefined
+      ? {}
+      : { companionVersion: options.companionVersion }),
     kind: options.kind ?? "change",
     id: options.id ?? "session-1",
     workspaceFingerprint: fingerprintOf(workspaceRoot),

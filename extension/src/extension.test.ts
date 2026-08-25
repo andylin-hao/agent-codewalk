@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
 
+import { EMPTY_GRAPH } from "./graph.js";
 import { activate, jumpToStep, updateStatusBar } from "./extension.js";
 import type { WalkthroughPlayer } from "./player.js";
 import type { StepSummary, ViewState } from "./types.js";
@@ -54,6 +55,7 @@ function emptyState(overrides: Partial<ViewState> = {}): ViewState {
     stepCount: 0,
     steps: [],
     groups: [],
+    graph: EMPTY_GRAPH,
     stale: false,
     relocated: false,
     canShowDiff: false,
@@ -74,6 +76,9 @@ function summary(id: string, position: number, active: boolean): StepSummary {
     changeKind: "modify",
     hasDiff: false,
     flowAfter: [],
+    depth: 0,
+    hasChildren: false,
+    expanded: false,
     active,
   };
 }

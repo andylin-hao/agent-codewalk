@@ -9,7 +9,7 @@
   "command.openLatest.title": "Open Latest Walkthrough",
   "command.previous.title": "Previous Step",
   "command.next.title": "Next Step",
-  "command.switchMode.title": "Switch Between File and Execution-Flow Order",
+  "command.switchMode.title": "Switch Between Graph and File Views",
   "command.jumpToStep.title": "Jump to Step",
   "command.showDiff.title": "Compare Current Step With Before",
   "command.diagnose.title": "Diagnose Installation",
@@ -21,5 +21,9 @@
   "configuration.storagePath.description": "Override the local Agent CodeWalk data directory. AGENT_CODEWALK_HOME takes precedence.",
   "configuration.companionPath.description": "Override the bundled MCP companion executable used during integration setup.",
   "configuration.refreshInterval.description": "Fallback poll interval in milliseconds. New walkthroughs are normally detected by watching the data directory; this poll covers filesystems where watching does not work.",
-  "configuration.notifyOnPublish.description": "Show a notification when an agent publishes a new walkthrough."
+  "configuration.notifyOnPublish.description": "Show a notification when an agent publishes a new walkthrough.",
+  "command.expandAll.title": "Expand All Steps",
+  "command.collapseAll.title": "Collapse All Steps",
+  "command.toggleStep.title": "Expand or Collapse Walkthrough Step",
+  "configuration.initialDepth.description": "How many levels of a nested walkthrough are open when it is first shown. Deeper steps stay one click away."
 }

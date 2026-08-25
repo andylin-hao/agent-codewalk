@@ -16,6 +16,7 @@ export function parseWalkthrough(value: unknown): Walkthrough {
     object,
     [
       "schemaVersion",
+      "companionVersion",
       "kind",
       "id",
       "workspaceFingerprint",
@@ -56,6 +57,9 @@ export function parseWalkthrough(value: unknown): Walkthrough {
   exactKeys(task, ["id", "goal", "startedAt", "completedAt"], "task");
   const result: Walkthrough = {
     schemaVersion: 1,
+    ...(object.companionVersion === undefined
+      ? {}
+      : { companionVersion: boundedString(object.companionVersion, "companionVersion", 40) }),
     kind: enumeration(object.kind, ["change", "explanation"] as const, "kind"),
     id: string(object.id, "id"),
     workspaceFingerprint: hash(object.workspaceFingerprint, "workspaceFingerprint"),
@@ -130,6 +134,8 @@ function parseStep(value: unknown, field: string): WalkthroughStep {
     object,
     [
       "id",
+      "parentId",
+      "depth",
       "path",
       "title",
       "explanation",
@@ -144,6 +150,12 @@ function parseStep(value: unknown, field: string): WalkthroughStep {
   const path = relativePath(object.path, `${field}.path`);
   return {
     id: boundedString(object.id, `${field}.id`, 100),
+    // Both are absent in a session published before nesting existed, which reads back as
+    // a flat walkthrough rather than failing to load.
+    ...(object.parentId === undefined
+      ? {}
+      : { parentId: boundedString(object.parentId, `${field}.parentId`, 100) }),
+    depth: object.depth === undefined ? 0 : boundedInteger(object.depth, `${field}.depth`, 8),
     path,
     title: boundedString(object.title, `${field}.title`, 200),
     explanation: boundedString(object.explanation, `${field}.explanation`, 10_000),
@@ -326,6 +338,14 @@ function exactKeys(
 function boolean(value: unknown, field: string): boolean {
   if (typeof value !== "boolean") {
     fail(`${field} must be a boolean`);
+  }
+  return value;
+}
+
+/** A whole number from zero to `maximum`, for a field where zero is meaningful. */
+function boundedInteger(value: unknown, field: string, maximum: number): number {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > maximum) {
+    fail(`${field} must be an integer between 0 and ${String(maximum)}`);
   }
   return value;
 }

@@ -5,13 +5,19 @@ import * as vscode from "vscode";
 
 import { resolveAnchor } from "./anchors.js";
 import type { StepDiffProvider } from "./diff.js";
+import { EMPTY_GRAPH, buildGraph } from "./graph.js";
+import { VERSION } from "./installer.js";
+import { staleCompanion } from "./staleness.js";
+import { ancestorsOf, expandedForDepth, visibleOrder } from "./tree.js";
 import { SessionStore, type StoredWalkthrough } from "./storage.js";
 import type {
+  ChangeHunk,
   ChangeKind,
   ExplanationMode,
   SessionSummary,
   StepGroup,
   StepSummary,
+  StepGraph,
   ViewState,
   WalkthroughStep,
 } from "./types.js";
@@ -34,7 +40,11 @@ export class WalkthroughPlayer implements vscode.Disposable {
   private readonly publishEmitter = new vscode.EventEmitter<StoredWalkthrough>();
   private sessions: readonly StoredWalkthrough[] = [];
   private active: StoredWalkthrough | undefined;
-  private mode: ExplanationMode = "file";
+  // The graph opens first now that it shows one level at a time: a fifty-step
+  // walkthrough arrives as a handful of top-level steps rather than a scroll.
+  private mode: ExplanationMode = "graph";
+  /** Steps whose children are showing. Seeded from `initialDepth` for each session. */
+  private expanded = new Set<string>();
   private index = 0;
   private stale = false;
   private relocated = false;
@@ -103,7 +113,16 @@ export class WalkthroughPlayer implements vscode.Disposable {
     await this.refresh();
     this.active = this.sessions[0];
     this.index = 0;
+    this.resetExpansion();
     await this.showCurrentStep();
+  }
+
+  /** Opens as many levels as the reader configured, for the active walkthrough. */
+  private resetExpansion(): void {
+    const levels = vscode.workspace
+      .getConfiguration("agentCodeWalk")
+      .get<number>("initialDepth", 2);
+    this.expanded = expandedForDepth(this.steps(), Math.max(1, levels));
   }
 
   public async select(sessionId: string): Promise<void> {
@@ -115,10 +134,47 @@ export class WalkthroughPlayer implements vscode.Disposable {
     }
     this.active = selected;
     this.index = 0;
+    this.resetExpansion();
     await this.showCurrentStep();
   }
 
+  /**
+   * Goes to a step, revealing it and its detail.
+   *
+   * Ancestors are opened so a step reached from search or a code lens is visible at all.
+   * The step itself is opened too, because choosing a step means reading it and its
+   * children are part of that — the same thing `next` does on the way past. Folding a
+   * step away again is what the disclosure control is for.
+   */
   public async selectStep(stepId: string): Promise<void> {
+    for (const ancestor of ancestorsOf(this.steps(), stepId)) {
+      this.expanded.add(ancestor);
+    }
+    if (this.hasChildren(stepId)) {
+      this.expanded.add(stepId);
+    }
+    await this.moveTo(stepId);
+  }
+
+  /**
+   * Handles a click on a step's row.
+   *
+   * The first click opens the step and reads it; clicking the step already in front of
+   * the reader folds it away again. Only a click behaves this way. A code lens, the
+   * search, or a command still reveals and never folds, because collapsing something
+   * the reader was not already looking at would undo work they did not ask about.
+   */
+  public async activateStep(stepId: string): Promise<void> {
+    const isCurrent = this.currentStep()?.id === stepId;
+    if (isCurrent && this.expanded.has(stepId) && this.hasChildren(stepId)) {
+      await this.toggleStep(stepId);
+      return;
+    }
+    await this.selectStep(stepId);
+  }
+
+  /** Moves to a step that is already visible, without changing what is open. */
+  private async moveTo(stepId: string): Promise<void> {
     const position = this.order().indexOf(stepId);
     if (position < 0) {
       this.error = "That step is not part of the active walkthrough.";
@@ -129,7 +185,18 @@ export class WalkthroughPlayer implements vscode.Disposable {
     await this.showCurrentStep();
   }
 
+  /**
+   * Moves to the next step the reader should see.
+   *
+   * A closed parent is opened rather than stepped over. Next means "keep reading", and
+   * skipping the detail would leave every level below the configured depth unreachable
+   * without a mouse. Opening first means the next index lands on the first child.
+   */
   public async next(): Promise<void> {
+    const current = this.currentStep();
+    if (current !== undefined && !this.expanded.has(current.id) && this.hasChildren(current.id)) {
+      this.expanded.add(current.id);
+    }
     const count = this.order().length;
     if (count === 0) {
       return;
@@ -138,13 +205,63 @@ export class WalkthroughPlayer implements vscode.Disposable {
     await this.showCurrentStep();
   }
 
+  /** Whether any step names this one as its parent. */
+  private hasChildren(stepId: string): boolean {
+    return this.steps().some((step) => step.parentId === stepId);
+  }
+
   public async previous(): Promise<void> {
     this.index = Math.max(this.index - 1, 0);
     await this.showCurrentStep();
   }
 
   public async switchMode(): Promise<void> {
-    await this.setMode(this.mode === "file" ? "flow" : "file");
+    await this.setMode(this.mode === "graph" ? "file" : "graph");
+  }
+
+  /**
+   * Opens or closes one step's children.
+   *
+   * Closing the step the reader is on would leave the cursor pointing at something no
+   * longer displayed, so the selection moves up to the step being closed.
+   */
+  public async toggleStep(stepId: string): Promise<void> {
+    if (this.expanded.has(stepId)) {
+      // Read the cursor before collapsing: afterwards the index points into a shorter
+      // list and would name whichever step happened to slide into its place.
+      const current = this.currentStep()?.id;
+      this.expanded.delete(stepId);
+      if (current !== undefined && ancestorsOf(this.steps(), current).includes(stepId)) {
+        await this.moveTo(stepId);
+        return;
+      }
+    } else {
+      this.expanded.add(stepId);
+    }
+    this.emit();
+  }
+
+  /** Opens every step that has children. */
+  public async expandAll(): Promise<void> {
+    this.expanded = new Set(this.steps().map((step) => step.id));
+    this.emit();
+    await Promise.resolve();
+  }
+
+  /** Closes everything back to the top level. */
+  public async collapseAll(): Promise<void> {
+    const current = this.currentStep()?.id;
+    this.expanded = new Set();
+    if (current !== undefined) {
+      const roots = this.steps().filter((step) => step.depth === 0);
+      const containing = ancestorsOf(this.steps(), current).at(-1);
+      const target = containing ?? (roots.some((step) => step.id === current) ? current : undefined);
+      if (target !== undefined) {
+        await this.moveTo(target);
+        return;
+      }
+    }
+    this.emit();
   }
 
   /** Switches order while keeping the reader on the step they were looking at. */
@@ -236,6 +353,7 @@ export class WalkthroughPlayer implements vscode.Disposable {
 
   public getState(): ViewState {
     const walkthrough = this.active?.walkthrough;
+    const stale = staleCompanion(walkthrough?.companionVersion, VERSION);
     const step = this.currentStep();
     const steps = this.stepSummaries();
     return {
@@ -265,10 +383,12 @@ export class WalkthroughPlayer implements vscode.Disposable {
       stepCount: this.order().length,
       steps,
       groups: groupByFile(steps),
+      graph: this.graph(steps),
       stale: this.stale,
       relocated: this.relocated,
       canShowDiff: step?.previousText !== undefined,
       degradedBaseline: walkthrough?.degradedBaseline ?? false,
+      ...(stale === undefined ? {} : { staleCompanion: stale }),
       uncoveredHunks: walkthrough?.uncoveredHunks ?? [],
       excludedChanges: walkthrough?.excludedChanges ?? [],
       ...(this.error === undefined ? {} : { error: this.error }),
@@ -335,7 +455,27 @@ export class WalkthroughPlayer implements vscode.Disposable {
       const hover = new vscode.MarkdownString();
       hover.appendMarkdown(`**${escapeMarkdown(step.title)}**\n\n`);
       hover.appendText(step.explanation);
-      editor.setDecorations(this.decorations[step.changeKind], [{ range, hoverMessage: hover }]);
+      // A block usually contains more than the lines that changed. Marking the block
+      // neutrally and the changed runs in their diff color shows the change in place,
+      // so finding it no longer means opening the comparison.
+      const changed =
+        step.changeKind === "context"
+          ? []
+          : changedRangesWithin(this.active.walkthrough.changedHunks, step.path, step.anchor, {
+              startLine: resolved.startLine,
+              endLine: resolved.endLine,
+            });
+      if (changed.length === 0) {
+        editor.setDecorations(this.decorations[step.changeKind], [{ range, hoverMessage: hover }]);
+      } else {
+        editor.setDecorations(this.decorations.context, [{ range, hoverMessage: hover }]);
+        editor.setDecorations(
+          this.decorations[step.changeKind],
+          changed.map((entry) => ({
+            range: lineRange(document, entry.startLine, entry.endLine),
+          })),
+        );
+      }
       editor.setDecorations(
         this.context,
         this.locateSteps(targetPath, document.getText())
@@ -368,6 +508,7 @@ export class WalkthroughPlayer implements vscode.Disposable {
       if (step === undefined) {
         return [];
       }
+      const hasChildren = this.hasChildren(step.id);
       return [
         {
           id: step.id,
@@ -379,6 +520,9 @@ export class WalkthroughPlayer implements vscode.Disposable {
           hasDiff: step.previousText !== undefined,
           flowAfter: step.flowAfter,
           active: step.id === activeIdentifier,
+          depth: step.depth,
+          hasChildren,
+          expanded: hasChildren && this.expanded.has(step.id),
         },
       ];
     });
@@ -393,12 +537,43 @@ export class WalkthroughPlayer implements vscode.Disposable {
     return active.steps.find((step) => step.id === identifier);
   }
 
+  /** Every step of the active walkthrough, or nothing when there is none. */
+  private steps(): readonly WalkthroughStep[] {
+    return this.active?.walkthrough.steps ?? [];
+  }
+
+  /**
+   * The steps a reader can currently move between.
+   *
+   * Navigation follows what is displayed rather than everything published, so `Alt+]` on
+   * a collapsed step goes to the next sibling instead of descending into work the reader
+   * has chosen not to look at.
+   */
   private order(): readonly string[] {
     const walkthrough = this.active?.walkthrough;
     if (walkthrough === undefined) {
       return [];
     }
-    return this.mode === "file" ? walkthrough.fileOrder : walkthrough.flowOrder;
+    const published = this.mode === "file" ? walkthrough.fileOrder : walkthrough.flowOrder;
+    const depths = new Map(walkthrough.steps.map((step) => [step.id, step.depth]));
+    return visibleOrder(published, depths, this.expanded);
+  }
+
+  /**
+   * Lays out the graph only for the view that draws it. Every navigation emits state,
+   * and the layout is worthless to the two list views.
+   */
+  private graph(steps: readonly StepSummary[]): StepGraph {
+    if (this.mode !== "graph") {
+      return EMPTY_GRAPH;
+    }
+    const counts = new Map<string, number>();
+    for (const step of this.steps()) {
+      if (step.parentId !== undefined) {
+        counts.set(step.parentId, (counts.get(step.parentId) ?? 0) + 1);
+      }
+    }
+    return buildGraph(steps, counts);
   }
 
   private clearDecorations(): void {
@@ -412,6 +587,57 @@ export class WalkthroughPlayer implements vscode.Disposable {
   private emit(): void {
     this.stateEmitter.fire(this.getState());
   }
+}
+
+/** A 1-based inclusive run of lines in the document currently on screen. */
+export interface LineSpan {
+  readonly startLine: number;
+  readonly endLine: number;
+}
+
+/**
+ * The parts of a step's block that the task actually changed.
+ *
+ * Hunks are recorded in the coordinates the file had at publication, so each one is
+ * shifted by however far the anchor has since moved before being clipped to the block.
+ * Touching runs are merged, because two decorations that meet render as one band anyway
+ * and the editor should not be asked to draw the seam.
+ *
+ * @param hunks Every changed hunk in the walkthrough, across all files.
+ * @param path The step's workspace-relative path.
+ * @param anchor Where the block started when it was published.
+ * @param block Where the block starts and ends now, after resolution.
+ * @returns Disjoint spans inside the block, in ascending order.
+ */
+export function changedRangesWithin(
+  hunks: readonly ChangeHunk[],
+  path: string,
+  anchor: { readonly startLine: number },
+  block: LineSpan,
+): LineSpan[] {
+  const offset = block.startLine - anchor.startLine;
+  const clipped = hunks
+    .filter((hunk) => hunk.path === path)
+    .map((hunk) => ({
+      startLine: Math.max(block.startLine, hunk.startLine + offset),
+      endLine: Math.min(block.endLine, hunk.endLine + offset),
+    }))
+    .filter((span) => span.startLine <= span.endLine)
+    .sort((left, right) => left.startLine - right.startLine);
+
+  const merged: LineSpan[] = [];
+  for (const span of clipped) {
+    const previous = merged.at(-1);
+    if (previous !== undefined && span.startLine <= previous.endLine + 1) {
+      merged[merged.length - 1] = {
+        startLine: previous.startLine,
+        endLine: Math.max(previous.endLine, span.endLine),
+      };
+      continue;
+    }
+    merged.push(span);
+  }
+  return merged;
 }
 
 /** Groups the ordered steps by file while preserving their order of first appearance. */

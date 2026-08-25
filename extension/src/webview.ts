@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import * as vscode from "vscode";
 
 import { type Messages, messagesFor } from "./i18n.js";
+import { VERSION } from "./installer.js";
 import type { ExplanationMode, ViewState } from "./types.js";
 import type { WalkthroughPlayer } from "./player.js";
 
@@ -15,6 +16,8 @@ type ViewMessage =
   | { readonly type: "showDiff" }
   | { readonly type: "select"; readonly sessionId: string }
   | { readonly type: "selectStep"; readonly stepId: string }
+  | { readonly type: "toggleStep"; readonly stepId: string }
+  | { readonly type: "activateStep"; readonly stepId: string }
   | { readonly type: "setMode"; readonly mode: ExplanationMode };
 
 export class WalkthroughViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
@@ -67,6 +70,12 @@ export class WalkthroughViewProvider implements vscode.WebviewViewProvider, vsco
       case "selectStep":
         await this.player.selectStep(message.stepId);
         break;
+      case "toggleStep":
+        await this.player.toggleStep(message.stepId);
+        break;
+      case "activateStep":
+        await this.player.activateStep(message.stepId);
+        break;
       case "setMode":
         await this.player.setMode(message.mode);
         break;
@@ -101,13 +110,20 @@ export function parseMessage(value: unknown): ViewMessage {
   if (type === "select" && hasText(value, "sessionId")) {
     return { type, sessionId: value.sessionId };
   }
-  if (type === "selectStep" && hasText(value, "stepId")) {
+  if (
+    (type === "selectStep" || type === "toggleStep" || type === "activateStep") &&
+    hasText(value, "stepId")
+  ) {
     return { type, stepId: value.stepId };
   }
-  if (type === "setMode" && "mode" in value && (value.mode === "file" || value.mode === "flow")) {
+  if (type === "setMode" && "mode" in value && isMode(value.mode)) {
     return { type, mode: value.mode };
   }
   throw new Error("Unsupported Agent CodeWalk webview message");
+}
+
+function isMode(value: unknown): value is ExplanationMode {
+  return value === "file" || value === "graph";
 }
 
 function hasText<Key extends string>(
@@ -176,7 +192,6 @@ export function html(messages: Messages = messagesFor("en")): string {
         <span id="kind-pill" class="pill" hidden></span>
         <button id="refresh" class="icon" type="button" title="${escapeHtml(messages.reload)}" aria-label="${escapeHtml(messages.reload)}">&#x21bb;</button>
       </div>
-      <p id="summary" class="muted"></p>
       <div class="progress" role="group" aria-label="${escapeHtml(messages.progressLabel)}">
         <div class="track"><div id="bar" class="bar"></div></div>
         <span id="progress-label" class="progress-label"></span>
@@ -187,7 +202,7 @@ export function html(messages: Messages = messagesFor("en")): string {
       </div>
       <div class="segmented" role="radiogroup" aria-label="${escapeHtml(messages.allSteps)}">
         <button id="mode-file" type="button" role="radio">${escapeHtml(messages.orderByFile)}</button>
-        <button id="mode-flow" type="button" role="radio">${escapeHtml(messages.orderByFlow)}</button>
+        <button id="mode-graph" type="button" role="radio">${escapeHtml(messages.orderByGraph)}</button>
       </div>
       <p class="hint muted">${escapeHtml(messages.keyboardHint)}</p>
     </header>
@@ -206,11 +221,21 @@ export function html(messages: Messages = messagesFor("en")): string {
       <div id="flow-after" class="flow-after muted" hidden></div>
     </section>
 
+    <details id="overview" class="overview">
+      <summary>${escapeHtml(messages.overview)}</summary>
+      <p id="summary" class="muted"></p>
+    </details>
+
     <div id="notices"></div>
 
     <section class="list" aria-label="${escapeHtml(messages.allSteps)}">
       <h3 class="section-title">${escapeHtml(messages.allSteps)}</h3>
+      <p id="graph-lead" class="hint muted" hidden>${escapeHtml(messages.graphLead)}</p>
       <div id="steps"></div>
+      <div id="graph" class="graph" hidden>
+        <svg id="graph-edges" class="graph-edges" aria-hidden="true"></svg>
+        <div id="graph-rows"></div>
+      </div>
     </section>
 
     <footer class="footer">
@@ -223,6 +248,7 @@ export function html(messages: Messages = messagesFor("en")): string {
     </footer>
   </main>
   <script nonce="${nonce}">const MESSAGES = ${embedJson(messages)};
+const EXTENSION_VERSION = ${embedJson(VERSION)};
 ${script()}</script>
 </body>
 </html>`;
@@ -308,8 +334,61 @@ function styles(): string {
     .row[aria-current="true"] { background: var(--vscode-list-activeSelectionBackground); color: var(--vscode-list-activeSelectionForeground); }
     .row .index { font-variant-numeric: tabular-nums; font-size: .78em; opacity: .7; }
     .row .label { overflow-wrap: anywhere; }
-    .row .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; vertical-align: middle; background: currentColor; }
+    .node-row > .row { flex: 1; min-width: 0; margin-bottom: 0; }
+    /*
+     * A dot borrows only the kind color from the badge classes, so it must undo the pill
+     * chrome that comes with them, or it renders as an empty bordered capsule.
+     */
+    .dot {
+      display: inline-block; width: 6px; height: 6px; padding: 0; border: 0;
+      border-radius: 50%; margin-right: 6px; vertical-align: middle;
+      background: currentColor;
+    }
     .row .after { display: block; font-size: .76em; opacity: .75; }
+    .overview { margin: 0 0 12px; font-size: .92em; }
+    .overview > summary {
+      cursor: pointer; list-style: none; padding: 5px 0;
+      font-size: .74em; text-transform: uppercase; letter-spacing: .05em;
+      color: var(--vscode-descriptionForeground);
+    }
+    .overview > summary::-webkit-details-marker { display: none; }
+    .overview > summary::before { content: "▸"; display: inline-block; width: 12px; transition: transform .12s; }
+    .overview[open] > summary::before { transform: rotate(90deg); }
+    .overview > summary:focus-visible { outline: 1px solid var(--vscode-focusBorder); }
+    .overview #summary { white-space: pre-wrap; margin: 2px 0 4px; }
+    /* The rail is a positioned stack: edges are painted in the gutter behind the rows. */
+    .graph { position: relative; padding: 2px 0; }
+    .graph-edges { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    .graph-edges path { fill: none; stroke: var(--vscode-editorWidget-border, var(--vscode-panel-border)); stroke-width: 1.2; }
+    .graph-edges path.active { stroke: var(--vscode-focusBorder); stroke-width: 1.6; }
+    .graph-edges circle { fill: var(--vscode-sideBar-background, var(--vscode-editor-background)); stroke: var(--vscode-descriptionForeground); stroke-width: 1.2; }
+    .graph-edges circle.active { stroke: var(--vscode-focusBorder); stroke-width: 2; }
+    .node-row { display: flex; align-items: flex-start; margin-bottom: 1px; }
+    .twisty {
+      flex: none; width: 20px; padding: 3px 0; border: 0; background: none;
+      color: var(--vscode-icon-foreground, var(--vscode-foreground)); line-height: 1.5;
+    }
+    .twisty:disabled { opacity: 0; cursor: default; }
+    .twisty:hover:not(:disabled) { background: none; color: var(--vscode-textLink-foreground); }
+    .twisty:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
+    .chevron { display: inline-block; transition: transform .12s ease-out; }
+    .twisty[aria-expanded="true"] .chevron { transform: rotate(90deg); }
+    .node {
+      display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: baseline;
+      flex: 1; min-width: 0; text-align: left; border: 0; border-radius: 4px;
+      background: none; padding: 4px 8px;
+    }
+    .node:hover { background: var(--vscode-list-hoverBackground); }
+    .child-count {
+      margin-left: 6px; padding: 0 5px; border-radius: 8px; font-size: .72em;
+      color: var(--vscode-badge-foreground); background: var(--vscode-badge-background);
+    }
+    .node[aria-current="true"] {
+      background: var(--vscode-list-activeSelectionBackground);
+      color: var(--vscode-list-activeSelectionForeground);
+    }
+    .node .index { font-variant-numeric: tabular-nums; font-size: .78em; opacity: .7; }
+    .node .label { overflow-wrap: anywhere; }
     .notice { border-left: 3px solid var(--vscode-editorWarning-foreground); padding: 6px 0 6px 8px; margin: 8px 0; font-size: .86em; }
     .notice.error { border-left-color: var(--vscode-editorError-foreground); }
     .notice ul { margin: 4px 0 0; padding-left: 16px; }
@@ -344,7 +423,8 @@ function script(): string {
     byId('delete').addEventListener('click', () => send('delete'));
     byId('diff').addEventListener('click', () => send('showDiff'));
     byId('mode-file').addEventListener('click', () => send('setMode', { mode: 'file' }));
-    byId('mode-flow').addEventListener('click', () => send('setMode', { mode: 'flow' }));
+    byId('mode-graph').addEventListener('click', () => send('setMode', { mode: 'graph' }));
+    window.addEventListener('resize', () => { if (state && state.mode === 'graph') drawEdges(); });
     byId('path').addEventListener('click', () => {
       if (state && state.step) send('selectStep', { stepId: state.step.id });
     });
@@ -392,12 +472,12 @@ function script(): string {
       byId('next').disabled = state.stepNumber >= state.stepCount;
       byId('diff').hidden = !state.canShowDiff;
 
-      const fileMode = state.mode === 'file';
-      byId('mode-file').setAttribute('aria-checked', String(fileMode));
-      byId('mode-flow').setAttribute('aria-checked', String(!fileMode));
+      byId('mode-file').setAttribute('aria-checked', String(state.mode === 'file'));
+      byId('mode-graph').setAttribute('aria-checked', String(state.mode === 'graph'));
 
       renderFlowAfter();
       renderSteps();
+      renderGraph();
     }
 
     function renderSessions() {
@@ -416,7 +496,7 @@ function script(): string {
     function renderFlowAfter() {
       const container = byId('flow-after');
       const predecessors = state.step.flowAfter || [];
-      const shouldShow = state.mode === 'flow' && predecessors.length > 0;
+      const shouldShow = state.mode === 'graph' && predecessors.length > 0;
       container.hidden = !shouldShow;
       if (!shouldShow) return;
       const titles = predecessors.map((id) => {
@@ -427,6 +507,10 @@ function script(): string {
     }
 
     function stepRow(step) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'node-row';
+      wrapper.style.paddingLeft = (step.depth * 14) + 'px';
+      wrapper.appendChild(twistyFor(step));
       const row = document.createElement('button');
       row.type = 'button';
       row.className = 'row';
@@ -440,33 +524,164 @@ function script(): string {
       dot.className = 'dot badge ' + step.changeKind;
       label.appendChild(dot);
       label.appendChild(document.createTextNode(step.title));
-      if (state.mode === 'flow' && step.flowAfter && step.flowAfter.length > 0) {
-        const after = document.createElement('span');
-        after.className = 'after';
-        after.textContent = step.path;
-        label.appendChild(after);
-      }
       row.appendChild(index);
       row.appendChild(label);
-      row.addEventListener('click', () => send('selectStep', { stepId: step.id }));
-      return row;
+      row.addEventListener('click', () => send('activateStep', { stepId: step.id }));
+      wrapper.appendChild(row);
+      return wrapper;
     }
 
     function renderSteps() {
       const container = byId('steps');
       const children = [];
-      if (state.mode === 'file') {
-        state.groups.forEach((group) => {
-          const heading = document.createElement('div');
-          heading.className = 'group-path';
-          heading.textContent = group.path;
-          children.push(heading);
-          group.steps.forEach((step) => children.push(stepRow(step)));
+      state.groups.forEach((group) => {
+        const heading = document.createElement('div');
+        heading.className = 'group-path';
+        heading.textContent = group.path;
+        children.push(heading);
+        group.steps.forEach((step) => children.push(stepRow(step)));
+      });
+      container.replaceChildren.apply(container, children);
+    }
+
+    /** Gutter geometry, in pixels. Must match the padding renderGraph sets on a row. */
+    var LANE_WIDTH = 13;
+    var LANE_INSET = 8;
+
+    function laneX(lane) { return LANE_INSET + lane * LANE_WIDTH; }
+
+    /** The control that opens a step, or an invisible placeholder keeping rows aligned. */
+    function twistyFor(node) {
+      const twisty = document.createElement('button');
+      twisty.type = 'button';
+      twisty.className = 'twisty';
+      if (node.hasChildren) {
+        // One glyph that turns, rather than two that swap: the open state is expressed
+        // once, by aria-expanded, so what the reader sees and what a screen reader is
+        // told cannot drift apart.
+        const chevron = document.createElement('span');
+        chevron.className = 'chevron';
+        chevron.textContent = '\u25b8';
+        twisty.appendChild(chevron);
+        twisty.setAttribute('aria-expanded', String(Boolean(node.expanded)));
+        twisty.setAttribute('aria-label', node.title);
+        twisty.addEventListener('click', (event) => {
+          // The row underneath opens the step; this control is the only way to fold it.
+          event.stopPropagation();
+          send('toggleStep', { stepId: node.id });
         });
       } else {
-        state.steps.forEach((step) => children.push(stepRow(step)));
+        twisty.tabIndex = -1;
+        twisty.setAttribute('aria-hidden', 'true');
+        twisty.disabled = true;
       }
-      container.replaceChildren.apply(container, children);
+      return twisty;
+    }
+
+    /** A row is a step; a parent also gets a twisty that opens the steps detailing it. */
+    function graphNode(node, gutter) {
+      const row = document.createElement('div');
+      row.className = 'node-row';
+      row.style.paddingLeft = (gutter + node.depth * 14) + 'px';
+
+      const twisty = twistyFor(node);
+
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'node';
+      button.dataset.stepId = node.id;
+      button.setAttribute('aria-current', String(Boolean(node.active)));
+      button.title = node.title + ' — ' + node.path;
+      const index = document.createElement('span');
+      index.className = 'index';
+      index.textContent = String(node.position);
+      const label = document.createElement('span');
+      label.className = 'label';
+      const dot = document.createElement('span');
+      dot.className = 'dot badge ' + node.changeKind;
+      label.appendChild(dot);
+      label.appendChild(document.createTextNode(node.title));
+      if (node.hasChildren && !node.expanded) {
+        const count = document.createElement('span');
+        count.className = 'child-count';
+        count.textContent = String(node.childCount);
+        label.appendChild(count);
+      }
+      button.appendChild(index);
+      button.appendChild(label);
+      button.addEventListener('click', () => send('activateStep', { stepId: node.id }));
+
+      row.appendChild(twisty);
+      row.appendChild(button);
+      return row;
+    }
+
+    function renderGraph() {
+      const isGraph = state.mode === 'graph';
+      byId('graph').hidden = !isGraph;
+      byId('graph-lead').hidden = !isGraph;
+      byId('steps').hidden = isGraph;
+      if (!isGraph) return;
+      // Every row is indented past the whole gutter so the rail stays a straight column
+      // no matter which lane a step sits in.
+      const gutter = laneX(Math.max(state.graph.laneCount, 1)) + 4;
+      const container = byId('graph-rows');
+      container.replaceChildren.apply(
+        container,
+        state.graph.nodes.map((node) => graphNode(node, gutter))
+      );
+      // Row heights are only known once the browser has laid the text out, so the rail
+      // is painted on the next frame rather than during this render.
+      requestAnimationFrame(drawEdges);
+    }
+
+    /** Draws the rail: a marker per step, and a lane elbow per dependency. */
+    function drawEdges() {
+      const svg = byId('graph-edges');
+      const graph = byId('graph');
+      if (!state || !state.graph || graph.hidden) return;
+      const origin = graph.getBoundingClientRect();
+      const centers = {};
+      Array.prototype.forEach.call(graph.querySelectorAll('.node[data-step-id]'), (element) => {
+        const box = element.getBoundingClientRect();
+        centers[element.dataset.stepId] = {
+          y: box.top - origin.top + box.height / 2,
+          top: box.top - origin.top,
+        };
+      });
+      const activeId = state.step ? state.step.id : undefined;
+      const lanes = {};
+      state.graph.nodes.forEach((node) => { lanes[node.id] = node.lane; });
+
+      const shapes = [];
+      state.graph.edges.forEach((edge) => {
+        const from = centers[edge.from];
+        const to = centers[edge.to];
+        if (!from || !to) return;
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        const startX = laneX(lanes[edge.from] || 0);
+        const endX = laneX(lanes[edge.to] || 0);
+        // Run down the predecessor's lane, then elbow across into the successor's just
+        // above its row, so a lane change is always visible as one short curve.
+        const turn = Math.max(from.y, to.top - 10);
+        path.setAttribute('d',
+          'M' + startX + ' ' + from.y +
+          ' L' + startX + ' ' + turn +
+          ' C' + startX + ' ' + to.y + ' ' + endX + ' ' + turn + ' ' + endX + ' ' + to.y);
+        if (edge.from === activeId || edge.to === activeId) path.setAttribute('class', 'active');
+        shapes.push(path);
+      });
+      state.graph.nodes.forEach((node) => {
+        const center = centers[node.id];
+        if (!center) return;
+        const marker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        marker.setAttribute('cx', String(laneX(node.lane)));
+        marker.setAttribute('cy', String(center.y));
+        marker.setAttribute('r', node.id === activeId ? '4.5' : '3.5');
+        if (node.id === activeId) marker.setAttribute('class', 'active');
+        shapes.push(marker);
+      });
+      svg.replaceChildren.apply(svg, shapes);
     }
 
     function notice(message, isError, items) {
@@ -491,6 +706,9 @@ function script(): string {
       if (state.error) boxes.push(notice(state.error, true));
       if (state.stale) boxes.push(notice(MESSAGES.staleNotice, true));
       if (state.relocated) boxes.push(notice(MESSAGES.relocatedNotice, false));
+      if (state.staleCompanion) {
+        boxes.push(notice(format(MESSAGES.staleCompanionNotice, state.staleCompanion, EXTENSION_VERSION), true));
+      }
       if (state.degradedBaseline) boxes.push(notice(MESSAGES.degradedNotice, false));
       if (state.uncoveredHunks && state.uncoveredHunks.length > 0) {
         boxes.push(notice(MESSAGES.uncoveredNotice, false, state.uncoveredHunks.map(

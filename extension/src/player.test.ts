@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
 
 import { StepDiffProvider } from "./diff.js";
-import { WalkthroughPlayer, groupByFile } from "./player.js";
+import { WalkthroughPlayer, changedRangesWithin, groupByFile } from "./player.js";
 import { SessionStore } from "./storage.js";
 import type { ChangeKind, StepSummary } from "./types.js";
 import {
@@ -114,6 +114,75 @@ async function publishTwoStepSession(): Promise<void> {
   await writeSession(workspace.dataDirectory, workspace.workspaceRoot, walkthrough);
 }
 
+describe("changedRangesWithin", () => {
+  const hunks = [
+    { path: "src/lib.rs", startLine: 12, endLine: 13, kind: "modify" as const },
+    { path: "src/main.rs", startLine: 12, endLine: 13, kind: "add" as const },
+  ];
+
+  it("keeps only the hunks of this file, clipped to the block", () => {
+    expect(changedRangesWithin(hunks, "src/lib.rs", { startLine: 10 }, { startLine: 10, endLine: 12 })).toEqual([
+      { startLine: 12, endLine: 12 },
+    ]);
+  });
+
+  it("shifts a hunk by however far the block moved", () => {
+    // Published at 10, found at 14: everything inside it slid down four lines.
+    expect(changedRangesWithin(hunks, "src/lib.rs", { startLine: 10 }, { startLine: 14, endLine: 20 })).toEqual([
+      { startLine: 16, endLine: 17 },
+    ]);
+  });
+
+  it("merges runs that touch so the editor draws one band", () => {
+    const adjacent = [
+      { path: "a.ts", startLine: 2, endLine: 3, kind: "modify" as const },
+      { path: "a.ts", startLine: 4, endLine: 5, kind: "modify" as const },
+      { path: "a.ts", startLine: 9, endLine: 9, kind: "modify" as const },
+    ];
+    expect(changedRangesWithin(adjacent, "a.ts", { startLine: 1 }, { startLine: 1, endLine: 10 })).toEqual([
+      { startLine: 2, endLine: 5 },
+      { startLine: 9, endLine: 9 },
+    ]);
+  });
+
+  it("returns nothing when no hunk reaches the block", () => {
+    expect(changedRangesWithin(hunks, "src/lib.rs", { startLine: 1 }, { startLine: 1, endLine: 5 })).toEqual([]);
+  });
+});
+
+/** A walkthrough with one step detailing another, for the nesting tests. */
+async function publishNestedSession(): Promise<void> {
+  const walkthrough = buildWalkthrough(workspace.workspaceRoot, [
+    buildStep({
+      id: "ready",
+      path: "src/lib.rs",
+      startLine: 1,
+      endLine: 3,
+      text: "pub fn ready() -> bool {\n    true\n}",
+      title: "Expose readiness",
+    }),
+    buildStep({
+      id: "ready-body",
+      parentId: "ready",
+      depth: 1,
+      path: "src/lib.rs",
+      startLine: 2,
+      endLine: 2,
+      text: "    true",
+      title: "Always ready for now",
+    }),
+    buildStep({
+      id: "caller",
+      path: "src/main.rs",
+      startLine: 2,
+      endLine: 2,
+      text: "    start(ready());",
+      title: "Consult the helper",
+    }),
+  ]);
+  await writeSession(workspace.dataDirectory, workspace.workspaceRoot, walkthrough);
+}
+
 describe("WalkthroughPlayer", () => {
   it("opens the first step and highlights its block", async () => {
     await publishTwoStepSession();
@@ -180,12 +249,59 @@ describe("WalkthroughPlayer", () => {
     await writeSession(workspace.dataDirectory, workspace.workspaceRoot, walkthrough);
     await player.openLatest();
 
+    expect(player.getState().mode).toBe("graph");
+    expect(player.getState().step?.id).toBe("caller");
     expect(player.getState().stepNumber).toBe(1);
     await player.switchMode();
     const state = player.getState();
-    expect(state.mode).toBe("flow");
-    expect(state.step?.id).toBe("ready");
+    expect(state.mode).toBe("file");
+    expect(state.step?.id).toBe("caller");
     expect(state.stepNumber).toBe(2);
+  });
+
+  it("marks only the changed lines inside a block, and the block itself neutrally", async () => {
+    const walkthrough = {
+      ...buildWalkthrough(workspace.workspaceRoot, [
+        buildStep({
+          id: "ready",
+          path: "src/lib.rs",
+          startLine: 1,
+          endLine: 3,
+          text: "pub fn ready() -> bool {\n    true\n}",
+          changeKind: "modify",
+        }),
+      ]),
+      // Only the middle line of the block actually changed.
+      changedHunks: [
+        { path: "src/lib.rs", startLine: 2, endLine: 2, kind: "modify" as const },
+      ],
+    };
+    await writeSession(workspace.dataDirectory, workspace.workspaceRoot, walkthrough);
+    await player.openLatest();
+
+    const editor = editorFor("src/lib.rs");
+    expect(lastRanges(editor, decorations.modify)).toEqual([[1, 1]]);
+    expect(lastRanges(editor, decorations.context)).toEqual([[0, 2]]);
+  });
+
+  it("falls back to marking the whole block when nothing narrows it", async () => {
+    const walkthrough = {
+      ...buildWalkthrough(workspace.workspaceRoot, [
+        buildStep({
+          id: "ready",
+          path: "src/lib.rs",
+          startLine: 1,
+          endLine: 3,
+          text: "pub fn ready() -> bool {\n    true\n}",
+          changeKind: "modify",
+        }),
+      ]),
+      changedHunks: [],
+    };
+    await writeSession(workspace.dataDirectory, workspace.workspaceRoot, walkthrough);
+    await player.openLatest();
+
+    expect(lastRanges(editorFor("src/lib.rs"), decorations.modify)).toEqual([[0, 2]]);
   });
 
   it("marks a block stale when the code no longer matches", async () => {
@@ -291,6 +407,205 @@ describe("WalkthroughPlayer", () => {
     expect(lastRanges(editorFor("src/lib.rs"), contextDecoration)).toEqual([[2, 2]]);
   });
 
+  it("opens two levels by default, and closes one on request", async () => {
+    await publishNestedSession();
+    await player.openLatest();
+
+    expect(player.getState().steps.map((step) => step.id)).toEqual([
+      "ready",
+      "ready-body",
+      "caller",
+    ]);
+    await player.toggleStep("ready");
+    expect(player.getState().steps.map((step) => step.id)).toEqual(["ready", "caller"]);
+  });
+
+  it("opens a closed step rather than stepping over its detail", async () => {
+    await publishNestedSession();
+    await player.openLatest();
+    await player.toggleStep("ready");
+    expect(player.getState().step?.id).toBe("ready");
+
+    await player.next();
+    expect(player.getState().step?.id).toBe("ready-body");
+  });
+
+  it("reaches every level by pressing next alone", async () => {
+    // The point of opening on the way through: a reader who only presses next must
+    // still see the detail, whatever the initial depth hid.
+    await publishNestedSession();
+    await player.openLatest();
+    await player.collapseAll();
+
+    const visited: string[] = [];
+    for (let turn = 0; turn < 3; turn += 1) {
+      visited.push(player.getState().step?.id ?? "");
+      await player.next();
+    }
+    expect(visited).toEqual(["ready", "ready-body", "caller"]);
+  });
+
+  it("moves to the next sibling once a step is already open", async () => {
+    await publishNestedSession();
+    await player.openLatest();
+    await player.selectStep("ready-body");
+
+    await player.next();
+    expect(player.getState().step?.id).toBe("caller");
+  });
+
+  it("reveals a step selected from outside the visible list", async () => {
+    await publishNestedSession();
+    await player.openLatest();
+    await player.toggleStep("ready");
+
+    await player.selectStep("ready-body");
+    const state = player.getState();
+    expect(state.step?.id).toBe("ready-body");
+    expect(state.steps.map((step) => step.id)).toContain("ready-body");
+  });
+
+  it("opens a step when it is chosen, not only when next reaches it", async () => {
+    // Clicking a row is the same intent as reading on, so it reveals the detail too.
+    await publishNestedSession();
+    await player.openLatest();
+    await player.collapseAll();
+
+    await player.selectStep("ready");
+    expect(player.getState().steps.map((step) => step.id)).toEqual([
+      "ready",
+      "ready-body",
+      "caller",
+    ]);
+  });
+
+  it("folds a step away when it is clicked a second time", async () => {
+    await publishNestedSession();
+    await player.openLatest();
+    await player.collapseAll();
+
+    await player.activateStep("ready");
+    expect(player.getState().steps.map((step) => step.id)).toContain("ready-body");
+
+    await player.activateStep("ready");
+    const state = player.getState();
+    expect(state.steps.map((step) => step.id)).toEqual(["ready", "caller"]);
+    expect(state.step?.id).toBe("ready");
+  });
+
+  it("opens again on a third click", async () => {
+    await publishNestedSession();
+    await player.openLatest();
+    await player.collapseAll();
+
+    await player.activateStep("ready");
+    await player.activateStep("ready");
+    await player.activateStep("ready");
+    expect(player.getState().steps.map((step) => step.id)).toContain("ready-body");
+  });
+
+  it("opens rather than folds a step the reader was not already on", async () => {
+    // Clicking away from the current step is navigation, not a fold.
+    await publishNestedSession();
+    await player.openLatest();
+    await player.selectStep("caller");
+
+    await player.activateStep("ready");
+    const state = player.getState();
+    expect(state.step?.id).toBe("ready");
+    expect(state.steps.map((step) => step.id)).toContain("ready-body");
+  });
+
+  it("never folds when a step is named from somewhere else", async () => {
+    // A code lens or the search reveals; it must not undo what the reader opened.
+    await publishNestedSession();
+    await player.openLatest();
+    await player.selectStep("ready");
+
+    await player.selectStep("ready");
+    expect(player.getState().steps.map((step) => step.id)).toContain("ready-body");
+  });
+
+  it("keeps a step closed when the reader folds it away", async () => {
+    // Collapsing must not bounce through selection, which would reopen it at once.
+    await publishNestedSession();
+    await player.openLatest();
+    await player.selectStep("ready");
+
+    await player.toggleStep("ready");
+    const state = player.getState();
+    expect(state.step?.id).toBe("ready");
+    expect(state.steps.map((step) => step.id)).toEqual(["ready", "caller"]);
+  });
+
+  it("shows the file list at the same depth as the graph", async () => {
+    await publishNestedSession();
+    await player.openLatest();
+    await player.collapseAll();
+    await player.setMode("file");
+
+    expect(player.getState().steps.map((step) => step.id)).toEqual(["ready", "caller"]);
+    await player.toggleStep("ready");
+    expect(player.getState().steps.map((step) => step.id)).toContain("ready-body");
+  });
+
+  it("moves the reader up when the step they are on is collapsed away", async () => {
+    await publishNestedSession();
+    await player.openLatest();
+    await player.selectStep("ready-body");
+
+    await player.toggleStep("ready");
+    expect(player.getState().step?.id).toBe("ready");
+  });
+
+  it("counts the hidden children of a closed step", async () => {
+    await publishNestedSession();
+    await player.openLatest();
+    await player.toggleStep("ready");
+
+    const node = player.getState().graph.nodes.find((entry) => entry.id === "ready");
+    expect(node?.hasChildren).toBe(true);
+    expect(node?.expanded).toBe(false);
+    expect(node?.childCount).toBe(1);
+  });
+
+  it("opens every level and closes back to the top", async () => {
+    await publishNestedSession();
+    await player.openLatest();
+
+    await player.toggleStep("ready");
+    await player.expandAll();
+    expect(player.getState().steps).toHaveLength(3);
+    await player.collapseAll();
+    expect(player.getState().steps.map((step) => step.id)).toEqual(["ready", "caller"]);
+  });
+
+  it("opens in the graph and toggles to the file list", async () => {
+    await publishTwoStepSession();
+    await player.openLatest();
+    expect(player.getState().mode).toBe("graph");
+
+    const seen: string[] = [];
+    for (let turn = 0; turn < 3; turn += 1) {
+      await player.switchMode();
+      seen.push(player.getState().mode);
+    }
+    expect(seen).toEqual(["file", "graph", "file"]);
+  });
+
+  it("lays out the rail for the graph view and drops it for the file list", async () => {
+    await publishTwoStepSession();
+    await player.openLatest();
+
+    const state = player.getState();
+    expect(state.graph.nodes.map((node) => node.id)).toEqual(["ready", "caller"]);
+    expect(state.graph.nodes.map((node) => node.lane)).toEqual([0, 0]);
+    expect(state.graph.edges).toEqual([{ from: "ready", to: "caller" }]);
+
+    await player.setMode("file");
+    expect(player.getState().graph.nodes).toEqual([]);
+  });
+
   it("groups the step list by file and marks the active row", async () => {
     await publishTwoStepSession();
     await player.openLatest();
@@ -350,6 +665,25 @@ describe("WalkthroughPlayer", () => {
 
     expect(player.getState().error).toMatch(/nothing to compare/u);
     expect(mockState.executedCommands.some((entry) => entry.command === "vscode.diff")).toBe(false);
+  });
+
+  it("warns when the publishing companion is behind the extension", async () => {
+    const walkthrough = buildWalkthrough(
+      workspace.workspaceRoot,
+      [buildStep({ id: "ready", path: "src/lib.rs", startLine: 1, endLine: 1, text: "pub fn ready() -> bool {" })],
+      { companionVersion: "0.0.1" },
+    );
+    await writeSession(workspace.dataDirectory, workspace.workspaceRoot, walkthrough);
+    await player.openLatest();
+
+    expect(player.getState().staleCompanion).toBe("0.0.1");
+  });
+
+  it("stays quiet about a session that recorded no companion version", async () => {
+    await publishTwoStepSession();
+    await player.openLatest();
+
+    expect(player.getState().staleCompanion).toBeUndefined();
   });
 
   it("reports a change walkthrough as such", async () => {
@@ -527,5 +861,8 @@ function summary(id: string, filePath: string, position: number): StepSummary {
     hasDiff: false,
     flowAfter: [],
     active: false,
+    depth: 0,
+    hasChildren: false,
+    expanded: false,
   };
 }

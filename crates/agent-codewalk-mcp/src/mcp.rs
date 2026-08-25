@@ -39,7 +39,23 @@ block the reader must see, in the order that makes the mechanism clear. Still an
 the conversation; the walkthrough is how the user reads the code alongside it.
 
 In both cases, use flowAfter only for genuine runtime or data-flow predecessors; file \
-order is computed for you. Do not write walkthrough files by hand.";
+order is computed for you. Do not write walkthrough files by hand.
+
+Structure it. A reader should meet a handful of steps, not a list of fifty. Give the \
+walkthrough 3 to 7 top-level steps that carry the overall flow, then detail each one with \
+children that name it in parentId. Two levels suits most work; nest deeper only where a \
+child genuinely decomposes again. A parent is a real step with its own block -- the \
+dispatcher, the entry point, the function that delegates -- and may omit startLine and \
+endLine to inherit the block of its first child in the same file. flowAfter may only name \
+a sibling.
+
+How to write it. Keep each range to the block that carries one idea -- 5 to 25 lines, \
+40 at the most -- and split a long function into several steps rather than covering it \
+with one wide range. Give each step three or four sentences: what the block does or what \
+changed, why, and what depends on it next. A change step must state the reason, not only \
+what changed. Write in the language the user is writing in and follow that language's \
+own conventions. Explain and guide; do not restate the title, the path, or the line \
+numbers, and do not write a bulleted changelog.";
 
 #[derive(Debug, Deserialize)]
 struct ToolCall {
@@ -232,11 +248,12 @@ fn steps_schema() -> Value {
         "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["id", "path", "startLine", "endLine", "title", "explanation"],
+            "required": ["id", "path", "title", "explanation"],
             "properties": {
                 "id": { "type": "string", "minLength": 1, "maxLength": 100 },
                 "path": { "type": "string", "minLength": 1, "description": "Workspace-relative path." },
-                "startLine": { "type": "integer", "minimum": 1 },
+                "parentId": { "type": "string", "minLength": 1, "maxLength": 100, "description": "The step this one details. Omit for a top-level step. Steps nest arbitrarily deep; two levels is usually right." },
+                "startLine": { "type": "integer", "minimum": 1, "description": "Required, except on a step that has children: it then inherits the block of its first child in the same file." },
                 "endLine": { "type": "integer", "minimum": 1 },
                 "title": { "type": "string", "minLength": 1, "maxLength": 200 },
                 "explanation": { "type": "string", "minLength": 1, "maxLength": 10000 },
@@ -244,7 +261,7 @@ fn steps_schema() -> Value {
                     "type": "array",
                     "items": { "type": "string", "minLength": 1 },
                     "uniqueItems": true,
-                    "description": "Steps that must be understood before this one, for the execution-flow order."
+                    "description": "Sibling steps that must be understood before this one. A predecessor must have the same parent."
                 },
                 "symbol": { "type": "string", "minLength": 1 }
             }
@@ -382,6 +399,30 @@ mod tests {
         assert!(instructions.contains("publish_walkthrough"));
         assert!(instructions.contains("publish_explanation"));
         assert!(instructions.contains("no begin_task"));
+    }
+
+    /// An agent that never loads the skill still gets the presentation rules, so the
+    /// instructions are the only place they are guaranteed to arrive.
+    #[test]
+    fn instructions_state_how_to_write_a_step() {
+        let workspace = tempdir().unwrap();
+        let state = tempdir().unwrap();
+        let service = CodeWalkService::new(
+            workspace.path(),
+            Storage::new(state.path().to_owned()).unwrap(),
+        )
+        .unwrap();
+        let response = handle_request(
+            &service,
+            &json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize" }),
+        )
+        .unwrap();
+        let instructions = response["result"]["instructions"].as_str().unwrap();
+        assert!(instructions.contains("3 to 7 top-level steps"));
+        assert!(instructions.contains("parentId"));
+        assert!(instructions.contains("5 to 25 lines"));
+        assert!(instructions.contains("must state the reason"));
+        assert!(instructions.contains("language the user is writing in"));
     }
 
     #[test]

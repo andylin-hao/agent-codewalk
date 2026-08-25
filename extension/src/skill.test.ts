@@ -48,4 +48,39 @@ describe("the portable skill", () => {
   it("says when not to publish anything", () => {
     expect(skill).toContain("Skip it for questions that point at no code");
   });
+
+  /**
+   * Presentation is the product here: a walkthrough of wide ranges and reasonless
+   * paragraphs is worse than no walkthrough, because the reader still has to work out
+   * what the agent meant. These assertions fail when a rewrite drops a rule.
+   */
+  it("bounds how much code one step may cover", () => {
+    expect(skill).toContain("Keep the range tight");
+    expect(skill).toMatch(/5 to 25 lines/u);
+  });
+
+  it("requires a reason on every step of a change walkthrough", () => {
+    expect(skill).toContain("must state a reason");
+  });
+
+  it("fixes the shape of a step explanation", () => {
+    const section = skill.slice(skill.indexOf("## Writing the explanation"));
+    expect(section).toContain("Three or four sentences per step");
+    expect(section).toContain("Restate the title, the path, or the line numbers");
+  });
+
+  it("asks for a decomposed walkthrough rather than a flat list", () => {
+    expect(skill).toContain("3 to 7 top-level steps");
+    expect(skill).toContain("parentId");
+    expect(skill).toContain("Two levels suits most work");
+  });
+
+  it("keeps flowAfter within one level", () => {
+    expect(skill).toContain("`flowAfter` names siblings only");
+  });
+
+  it("asks for the user's language and its own conventions", () => {
+    expect(skill).toContain("Write in the language the user is writing in");
+    expect(skill).toContain("follow that language's own conventions");
+  });
 });

@@ -2,7 +2,7 @@
   "name": "agent-codewalk",
   "displayName": "%extension.displayName%",
   "description": "%extension.description%",
-  "version": "0.3.0",
+  "version": "0.7.3",
   "publisher": "agent-codewalk",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -139,6 +139,23 @@
         "command": "agentCodeWalk.showStepDiff",
         "title": "%command.showStepDiff.title%",
         "category": "%command.category%"
+      },
+      {
+        "command": "agentCodeWalk.expandAll",
+        "title": "%command.expandAll.title%",
+        "category": "%command.category%",
+        "icon": "$(expand-all)"
+      },
+      {
+        "command": "agentCodeWalk.collapseAll",
+        "title": "%command.collapseAll.title%",
+        "category": "%command.category%",
+        "icon": "$(collapse-all)"
+      },
+      {
+        "command": "agentCodeWalk.toggleStep",
+        "title": "%command.toggleStep.title%",
+        "category": "%command.category%"
       }
     ],
     "keybindings": [
@@ -197,6 +214,18 @@
         {
           "command": "agentCodeWalk.delete",
           "when": "agentCodeWalk.hasSession"
+        },
+        {
+          "command": "agentCodeWalk.toggleStep",
+          "when": "false"
+        },
+        {
+          "command": "agentCodeWalk.expandAll",
+          "when": "agentCodeWalk.hasSession"
+        },
+        {
+          "command": "agentCodeWalk.collapseAll",
+          "when": "agentCodeWalk.hasSession"
         }
       ],
       "view/title": [
@@ -229,6 +258,11 @@
           "command": "agentCodeWalk.uninstall",
           "when": "view == agentCodeWalk.walkthrough",
           "group": "1_setup"
+        },
+        {
+          "command": "agentCodeWalk.collapseAll",
+          "when": "view == agentCodeWalk.walkthrough && agentCodeWalk.hasSession",
+          "group": "navigation@4"
         }
       ]
     },
@@ -256,6 +290,13 @@
           "type": "boolean",
           "default": true,
           "description": "%configuration.notifyOnPublish.description%"
+        },
+        "agentCodeWalk.initialDepth": {
+          "type": "number",
+          "default": 2,
+          "minimum": 1,
+          "maximum": 8,
+          "description": "%configuration.initialDepth.description%"
         }
       }
     }

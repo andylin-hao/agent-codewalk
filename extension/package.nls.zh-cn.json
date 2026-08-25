@@ -9,7 +9,7 @@
   "command.openLatest.title": "打开最新讲解",
   "command.previous.title": "上一步",
   "command.next.title": "下一步",
-  "command.switchMode.title": "在文件顺序与执行流顺序之间切换",
+  "command.switchMode.title": "在流程图视图与文件视图之间切换",
   "command.jumpToStep.title": "跳转到步骤",
   "command.showDiff.title": "对比当前步骤与修改前",
   "command.diagnose.title": "诊断安装",
@@ -21,5 +21,9 @@
   "configuration.storagePath.description": "覆盖本机 Agent CodeWalk 数据目录。环境变量 AGENT_CODEWALK_HOME 优先级更高。",
   "configuration.companionPath.description": "覆盖安装集成时使用的内置 MCP companion 可执行文件。",
   "configuration.refreshInterval.description": "兜底轮询间隔（毫秒）。新讲解通常通过监听数据目录发现；该轮询用于无法监听的文件系统。",
-  "configuration.notifyOnPublish.description": "Agent 发布新讲解时显示通知。"
+  "configuration.notifyOnPublish.description": "Agent 发布新讲解时显示通知。",
+  "command.expandAll.title": "展开全部步骤",
+  "command.collapseAll.title": "折叠全部步骤",
+  "command.toggleStep.title": "展开或折叠讲解步骤",
+  "configuration.initialDepth.description": "首次打开分层讲解时展开的层数。更深的步骤仍可点击展开。"
 }

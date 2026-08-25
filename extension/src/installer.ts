@@ -18,7 +18,8 @@ import { dataDirectory } from "./storage.js";
 import { withFileTransaction } from "./file-transaction.js";
 
 const PRODUCT = "agent-codewalk";
-const VERSION = "0.3.0";
+/** The release this extension ships, and the companion version it installs. */
+export const VERSION = "0.7.3";
 
 type AgentName = "Codex" | "Claude Code" | "OpenCode";
 

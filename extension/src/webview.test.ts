@@ -31,7 +31,14 @@ describe("parseMessage", () => {
     });
   });
 
-  it.each([["file"], ["flow"]])("accepts the %s order", (mode) => {
+  it("accepts an activation", () => {
+    expect(parseMessage({ type: "activateStep", stepId: "step-1" })).toEqual({
+      type: "activateStep",
+      stepId: "step-1",
+    });
+  });
+
+  it.each([["file"], ["graph"]])("accepts the %s view", (mode) => {
     expect(parseMessage({ type: "setMode", mode })).toEqual({ type: "setMode", mode });
   });
 
@@ -49,7 +56,9 @@ describe("parseMessage", () => {
     ["a selection without an identifier", { type: "select" }],
     ["a selection with an empty identifier", { type: "select", sessionId: "" }],
     ["a step selection with a numeric identifier", { type: "selectStep", stepId: 7 }],
-    ["an unsupported order", { type: "setMode", mode: "random" }],
+    ["an unsupported view", { type: "setMode", mode: "random" }],
+    ["the retired flow view", { type: "setMode", mode: "flow" }],
+    ["a toggle without an identifier", { type: "toggleStep" }],
   ])("rejects %s", (_name, value) => {
     expect(() => parseMessage(value)).toThrow(/Unsupported Agent CodeWalk webview message/u);
   });
@@ -151,7 +160,7 @@ describe("WalkthroughViewProvider", () => {
     [{ type: "showDiff" }, "showDiff"],
     [{ type: "select", sessionId: "s1" }, "select:s1"],
     [{ type: "selectStep", stepId: "step" }, "selectStep:step"],
-    [{ type: "setMode", mode: "flow" }, "setMode:flow"],
+    [{ type: "setMode", mode: "graph" }, "setMode:graph"],
   ])("routes %j to the player", async (message, expected) => {
     const { player, calls } = createPlayerStub();
     const provider = new WalkthroughViewProvider(vscode.Uri.file("/extension"), player);
@@ -213,7 +222,7 @@ describe("html", () => {
       "previous",
       "next",
       "mode-file",
-      "mode-flow",
+      "mode-graph",
       "kind",
       "step-title",
       "path",
@@ -231,13 +240,13 @@ describe("html", () => {
   it("gives a first-time reader something to do", () => {
     const page = html();
     expect(page).toContain("Set up agent integrations");
-    expect(page).toContain("Alt+[ and Alt+] move between steps.");
+    expect(page).toContain("Alt+] reads on, opening a step to show its detail.");
   });
 
   it("renders in the editor's language", () => {
     const page = html(messagesFor("zh-cn"));
     expect(page).toContain("配置 Agent 集成");
-    expect(page).toContain("按执行流");
+    expect(page).toContain("流程图");
     expect(page).toContain('"stepCounter":"第 {0} 步，共 {1} 步"');
   });
 
@@ -254,6 +263,71 @@ describe("html", () => {
     // Compiling without running proves the hand-written client script is valid
     // JavaScript, which nothing else in this suite would catch.
     expect(() => new Script(script ?? "")).not.toThrow();
+  });
+
+  it("offers the graph as a third view", () => {
+    const page = html();
+    expect(page).toContain('id="mode-graph"');
+    expect(page).toContain("send('setMode', { mode: 'graph' })");
+    expect(page).toContain("state.graph.nodes");
+  });
+
+  it("shows the graph instead of the flat list, never both", () => {
+    const page = html();
+    expect(page).toContain("byId('graph').hidden = !isGraph");
+    expect(page).toContain("byId('steps').hidden = isGraph");
+  });
+
+  it("puts the current step above the walkthrough summary", () => {
+    // The block being read is what the reader came for; the overview is reference.
+    const page = html();
+    expect(page.indexOf('id="step-title"')).toBeLessThan(page.indexOf('id="overview"'));
+    expect(page.indexOf('id="overview"')).toBeLessThan(page.indexOf('id="summary"'));
+  });
+
+  it("leaves the overview collapsed until it is clicked", () => {
+    const page = html();
+    expect(page).toMatch(/<details id="overview"[^>]*>/u);
+    expect(page).not.toMatch(/<details id="overview"[^>]*\sopen/u);
+  });
+
+  it("offers the same disclosure control in both views", () => {
+    // The by-file list hides a collapsed subtree too, so it needs a way to open one.
+    const page = html();
+    expect(page).toContain("function twistyFor(node)");
+    expect(page).toContain("wrapper.appendChild(twistyFor(step))");
+    expect(page).toContain("const twisty = twistyFor(node)");
+  });
+
+  it("shows one chevron that turns, rather than two glyphs that swap", () => {
+    const page = html();
+    expect(page).toContain("chevron.className = 'chevron'");
+    // The rotation is driven by the accessible state, so the two cannot disagree.
+    expect(page).toContain('.twisty[aria-expanded="true"] .chevron { transform: rotate(90deg); }');
+    expect(page).toContain("twisty.setAttribute('aria-expanded'");
+  });
+
+  it("leaves the arrow out of a step that has no detail", () => {
+    const page = html();
+    expect(page).toContain(".twisty:disabled { opacity: 0; cursor: default; }");
+  });
+
+  it("sends a click on a row as an activation, in both views", () => {
+    const page = html();
+    expect(page).toContain("send('activateStep', { stepId: step.id })");
+    expect(page).toContain("send('activateStep', { stepId: node.id })");
+  });
+
+  it("keeps the twisty from also selecting the row beneath it", () => {
+    const page = html();
+    expect(page).toContain("event.stopPropagation()");
+  });
+
+  it("warns about a stale companion and names both versions", () => {
+    const page = html();
+    expect(page).toContain("state.staleCompanion");
+    expect(page).toContain("MESSAGES.staleCompanionNotice");
+    expect(page).toContain("const EXTENSION_VERSION =");
   });
 
   it("carries a pill that marks an explanation", () => {

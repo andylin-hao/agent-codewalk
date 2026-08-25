@@ -16,11 +16,11 @@ Agent CodeWalk 让 Codex、Claude Code 和 OpenCode 在完成代码修改后，�
 | --- | --- | --- |
 | 下一步 | `Alt+]` | `Agent CodeWalk: Next Step` |
 | 上一步 | `Alt+[` | `Agent CodeWalk: Previous Step` |
-| 切换文件顺序 / 执行流顺序 | `Alt+\` | `Agent CodeWalk: Switch Between File and Execution-Flow Order` |
+| 在流程图与文件视图之间切换 | `Alt+\` | `Agent CodeWalk: Switch Between Graph and File Views` |
 | 跳转到任意步骤 | `Ctrl+Alt+W`（macOS `Cmd+Alt+W`） | `Agent CodeWalk: Jump to Step` |
 | 对比该步骤修改前后 | — | `Agent CodeWalk: Compare Current Step With Before` |
 
-侧边栏会显示进度、当前步骤说明，以及按文件分组的完整步骤列表；每个被讲解的代码块上方还会出现 CodeLens，可以直接跳转或查看 diff。状态栏显示当前进度，点击可搜索跳转。界面提供英文和简体中文。
+侧边栏顶部是进度和当前步骤的说明，整体说明收在下方的“整体说明”里，点击展开；再往下是步骤列表。默认是流程图：讲解先给出几个高层步骤，每个步骤可以展开，读到下一层的细节；每个步骤各占一行，左侧的连线把它连到依赖它的步骤，点击任意一行即可跳转。也可以切换成按文件分组，一次看到全部步骤。首次展开的层数由 `agentCodeWalk.initialDepth` 控制，默认两层。步骤块中真正发生改动的那几行会按 add / modify / delete 着色，其余部分保持中性，因此不必打开对比也能看清改动。每个被讲解的代码块上方还会出现 CodeLens，可以直接跳转或查看 diff。状态栏显示当前进度，点击可搜索跳转。界面提供英文和简体中文。
 
 用户无需配置额外模型或 API key。说明由刚完成修改的 Agent 生成，代码、baseline 和 walkthrough 只写入本机用户数据目录。
 
@@ -44,6 +44,8 @@ Agent 在给出讲解的同时仍然会在对话里正常回答；walkthrough �
 Agent 在首次文件 mutation 前调用 `begin_task`。Companion 记录 Git HEAD、当前 index，以及任务开始前已有 dirty/untracked 文件的必要快照。任务完成后，Agent 调用 `publish_walkthrough`；companion 计算本轮变化、验证每个文本 diff hunk 都有讲解步骤、补全稳定 anchor，然后原子发布 session。编辑器扩展读取 session，验证协议和 workspace fingerprint 后才允许打开文件。
 
 Companion 以 Git 仓库根目录作为 workspace 标识，因此 Agent 在子目录中启动时，发布的讲解仍然能被打开了仓库（或其子目录）的编辑器找到。可以用 `AGENT_CODEWALK_WORKSPACE` 覆盖。
+
+Agent 启动时会拿到当时安装的 companion，并在整个会话中一直用它。因此升级扩展不会影响已经在运行的 Agent——它发布的讲解仍然来自旧 companion，看起来就像新功能没生效。每个 session 都会记录发布它的 companion 版本，低于当前扩展版本时侧边栏会直接提示重启 Agent 会话。
 
 如果 Agent 错过了 `begin_task`，仍可降级发布。此时 companion 从当前 Git 状态尽力推导变化，session 会标记 `degradedBaseline`；未被任何步骤覆盖的 hunk 会记录在 `uncoveredHunks` 中并在 UI 中逐条列出，而不是被静默忽略。完整 baseline 下，未覆盖的 hunk 仍然直接拒绝发布。
 

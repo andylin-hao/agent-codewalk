@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 import { StepCodeLensProvider } from "./codelens.js";
 import { StepDiffProvider } from "./diff.js";
 import { format, messagesFor } from "./i18n.js";
-import { IntegrationInstaller } from "./installer.js";
+import { IntegrationInstaller, VERSION } from "./installer.js";
 import { WalkthroughPlayer } from "./player.js";
 import { SessionStore } from "./storage.js";
 import type { ChangeKind, ViewState, WalkthroughKind } from "./types.js";
@@ -58,6 +58,11 @@ export function activate(context: vscode.ExtensionContext): void {
     commandWithArgument("agentCodeWalk.goToStep", async (stepId) => {
       await player.selectStep(stepId);
     }),
+    commandWithArgument("agentCodeWalk.toggleStep", async (stepId) => {
+      await player.toggleStep(stepId);
+    }),
+    command("agentCodeWalk.expandAll", () => player.expandAll()),
+    command("agentCodeWalk.collapseAll", () => player.collapseAll()),
     commandWithArgument("agentCodeWalk.showStepDiff", async (stepId) => {
       await player.selectStep(stepId);
       await player.showDiff();
@@ -75,6 +80,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     command("agentCodeWalk.setup", () => installer.setup()),
     command("agentCodeWalk.diagnose", async () => {
+      output.info(`Extension and companion version: ${VERSION}.`);
       output.info(`Loaded ${String(player.getState().sessions.length)} walkthrough session(s).`);
       await installer.diagnose();
     }),

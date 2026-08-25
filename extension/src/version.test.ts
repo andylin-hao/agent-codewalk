@@ -7,7 +7,7 @@ const sources = [
   { file: "package.json", pattern: /"version":\s*"([^"]+)"/u },
   { file: "extension/package.json", pattern: /"version":\s*"([^"]+)"/u },
   { file: "Cargo.toml", pattern: /^version\s*=\s*"([^"]+)"/mu },
-  { file: "extension/src/installer.ts", pattern: /^const VERSION = "([^"]+)"/mu },
+  { file: "extension/src/installer.ts", pattern: /^(?:export )?const VERSION = "([^"]+)"/mu },
 ] as const;
 
 function read(file: string): string {

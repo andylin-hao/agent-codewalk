@@ -44,14 +44,30 @@ pub struct BeginTaskResult {
 pub struct StepInput {
     pub id: String,
     pub path: String,
-    pub start_line: u32,
-    pub end_line: u32,
+    /// Omitted only by a step that has children, which then inherits the block of its
+    /// first leaf descendant.
+    #[serde(default)]
+    pub start_line: Option<u32>,
+    #[serde(default)]
+    pub end_line: Option<u32>,
     pub title: String,
     pub explanation: String,
     #[serde(default)]
     pub flow_after: Vec<String>,
     #[serde(default)]
     pub symbol: Option<String>,
+    /// The step this one details. Absent for a top-level step.
+    #[serde(default)]
+    pub parent_id: Option<String>,
+}
+
+/// A step input with its range settled, so later stages never handle the absent case.
+#[derive(Clone, Debug)]
+pub(crate) struct ResolvedStep {
+    pub input: StepInput,
+    pub start_line: u32,
+    pub end_line: u32,
+    pub depth: u32,
 }
 
 /// Arguments accepted by the `publish_walkthrough` MCP tool.
@@ -139,6 +155,14 @@ pub(crate) struct BaselineManifest {
 #[serde(deny_unknown_fields)]
 pub struct Walkthrough {
     pub schema_version: u32,
+    /// The companion that wrote this session.
+    ///
+    /// An agent keeps the companion it started with, so an editor can be several
+    /// releases ahead of the process publishing to it. Recording the version lets the
+    /// editor say so instead of leaving a walkthrough that silently lacks whatever the
+    /// newer protocol added. Absent in a session published before this was recorded.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub companion_version: Option<String>,
     pub kind: WalkthroughKind,
     pub id: String,
     pub workspace_fingerprint: String,
@@ -182,6 +206,13 @@ pub struct WalkthroughTask {
 #[serde(deny_unknown_fields)]
 pub struct WalkthroughStep {
     pub id: String,
+    /// The step this one details, for the nested step list. Absent at the top level.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_id: Option<String>,
+    /// Distance from the top level, so a reader need not walk the parent chain. Absent in
+    /// a session published before nesting existed, which reads back as a flat list.
+    #[serde(default)]
+    pub depth: u32,
     pub path: String,
     pub title: String,
     pub explanation: String,
