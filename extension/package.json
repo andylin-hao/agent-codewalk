@@ -5,6 +5,15 @@
   "version": "0.1.1",
   "publisher": "agent-codewalk",
   "license": "MIT",
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agent-codewalk/agent-codewalk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/agent-codewalk/agent-codewalk/issues"
+  },
+  "homepage": "https://github.com/agent-codewalk/agent-codewalk#readme",
   "engines": {
     "vscode": "^1.96.0"
   },
@@ -76,7 +85,7 @@
     "check": "tsc --noEmit && eslint src",
     "test": "vitest run --coverage && corepack pnpm build && node scripts/smoke-load-bundle.mjs",
     "test:extension": "corepack pnpm build && node scripts/build-extension-test.mjs && node scripts/run-extension-tests.mjs",
-    "package": "corepack pnpm build && node scripts/smoke-load-bundle.mjs && node scripts/stage-companion.mjs && corepack pnpm exec vsce package --no-dependencies --allow-missing-repository"
+    "package": "corepack pnpm build && node scripts/smoke-load-bundle.mjs && node scripts/stage-companion.mjs && corepack pnpm exec vsce package --no-dependencies"
   },
   "dependencies": {
     "jsonc-parser": "^3.3.1"

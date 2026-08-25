@@ -36,7 +36,6 @@ interface InstallationManifest {
   readonly agents: readonly AgentName[];
   readonly configPaths: readonly string[];
   readonly skillPaths: readonly string[];
-  readonly ownedFiles: readonly string[];
 }
 
 interface SetupResult {
@@ -107,9 +106,6 @@ export class IntegrationInstaller {
     for (const skillPath of manifest.skillPaths) {
       this.output.info(`${skillPath}: ${(await isOwnedSkill(skillPath)) ? "owned skill present" : "missing or not owned"}`);
     }
-    for (const ownedFilePath of manifest.ownedFiles) {
-      this.output.info(`${ownedFilePath}: ${(await ownedFile(ownedFilePath)) ? "owned adapter present" : "missing or not owned"}`);
-    }
   }
 
   public async uninstall(): Promise<void> {
@@ -130,9 +126,6 @@ export class IntegrationInstaller {
       if (await isOwnedSkill(skillPath)) {
         await fs.rm(skillPath, { recursive: true, force: true });
       }
-    }
-    for (const ownedFilePath of manifest.ownedFiles) {
-      await removeOwnedFile(ownedFilePath);
     }
     await removeCodexConfiguration(path.join(os.homedir(), ".codex", "config.toml"));
     await removeJsonConfiguration(path.join(os.homedir(), ".claude.json"), ["mcpServers", PRODUCT], manifest.companionPath);
@@ -161,7 +154,6 @@ export class IntegrationInstaller {
       const configuredAgents: AgentName[] = [];
       const configPaths: string[] = [];
       const skillPaths: string[] = [];
-      const ownedFiles: string[] = [];
       for (const target of targets) {
         try {
           await withFileTransaction(
@@ -194,7 +186,6 @@ export class IntegrationInstaller {
         agents: configuredAgents,
         configPaths: uniquePaths(configPaths),
         skillPaths: uniquePaths(skillPaths),
-        ownedFiles: uniquePaths(ownedFiles),
       };
       await writeJsonAtomic(manifestPath(), manifest);
       return { companionPath, agents: configuredAgents, warnings };
@@ -333,20 +324,6 @@ async function installOwnedSkill(source: string, destination: string): Promise<v
   }
 }
 
-async function removeOwnedFile(target: string): Promise<void> {
-  if (await ownedFile(target)) {
-    await fs.rm(target, { force: true });
-  }
-}
-
-async function ownedFile(target: string): Promise<boolean> {
-  try {
-    return (await fs.readFile(target, "utf8")).startsWith("// agent-codewalk-owned");
-  } catch {
-    return false;
-  }
-}
-
 async function isOwnedSkill(skillPath: string): Promise<boolean> {
   try {
     const value: unknown = JSON.parse(
@@ -466,7 +443,6 @@ async function readManifest(): Promise<InstallationManifest | undefined> {
       agents: Array.isArray(candidate.agents) ? (candidate.agents as AgentName[]) : [],
       configPaths: Array.isArray(candidate.configPaths) ? (candidate.configPaths as string[]) : [],
       skillPaths: Array.isArray(candidate.skillPaths) ? (candidate.skillPaths as string[]) : [],
-      ownedFiles: Array.isArray(candidate.ownedFiles) ? (candidate.ownedFiles as string[]) : [],
     };
   } catch {
     return undefined;
