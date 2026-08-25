@@ -139,6 +139,41 @@ P0 before everything. P1 before P3, so that new navigation code is written again
 tested modules rather than on top of untested ones. P2 can proceed in parallel with P1
 once the test double exists.
 
+## Status
+
+Everything above is implemented as of 0.2.0 except the items listed as deferred.
+
+| Phase | State |
+| --- | --- |
+| P0 repository baseline | Done. Signed history, `scripts/sync-version.mjs` with a test, complete manifest, dead installer field removed. |
+| P1 test coverage | Done. 212 extension tests at 94.7% statements and 88.5% branches over the whole source tree, 46 companion tests including an end-to-end suite over the real binary, a twenty-case shared negative protocol contract, and coverage gates in CI for both languages. |
+| P2 correctness | Done. Repository-root workspace identity, filesystem watching, `uncoveredHunks` on degraded baselines, cryptographic nonce, normalization round-trip tests. |
+| P3 navigation and interface | Done, except the step tree. |
+| P4 agent surface | Done, except project-scoped installation. |
+| P5 distribution | Publishing and the manual checklist are in place; the demonstration recording is not. |
+
+### Deferred, with reasons
+
+- **Step tree view.** The redesigned sidebar already lists every step, grouped by file
+  and clickable. A second tree would be a second navigation surface to keep in step with
+  the first, for the same capability.
+- **Project-scoped installation.** Each agent stores project configuration differently,
+  and two of the three have no documented per-project MCP path that was verifiable here.
+  Shipping a half-verified path would produce exactly the silent failure P4 exists to
+  remove. It needs a session with each agent's project configuration to confirm first.
+- **Demonstration recording.** Needs a real editor session to capture.
+
+### Before the first public release
+
+- Confirm the repository URL in `extension/package.json`. It currently points at
+  `github.com/agent-codewalk/agent-codewalk`, which is a placeholder.
+- Set `VSCE_PAT` and `OVSX_PAT`, or remove the `marketplace` job from the release
+  workflow and correct the README.
+- Raise the companion coverage floor in `.github/workflows/ci.yml` to just under the
+  first figure `cargo llvm-cov` reports; it starts at 80 because it was introduced
+  without a recorded baseline.
+- Work through `docs/release-checklist.md`.
+
 ## Verification
 
 Every phase is verified with the commands in `CONTRIBUTING.md`:

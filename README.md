@@ -7,8 +7,18 @@ Agent CodeWalk 让 Codex、Claude Code 和 OpenCode 在完成代码修改后，�
 1. 从 VS Code Marketplace、Open VSX 或 release 中安装 `Agent CodeWalk` 扩展。
 2. 运行 `Agent CodeWalk: Setup Agent Integrations`。确认后，扩展会安装本地 MCP companion，并为检测到的 Agent 配置 MCP 和 portable skill；Codex/Claude Code 还会获得任务生命周期提醒。Codex 会要求通过 `/hooks` 检查并信任新安装的用户级 Stop hook。
 3. 重启已有 Agent session，然后正常要求 Agent 修改代码。
-4. 修改和验证完成后，打开 Activity Bar 中的 Agent CodeWalk，或运行 `Agent CodeWalk: Open Latest Walkthrough`。
-5. 使用 Previous/Next 逐步查看，通过 Order 按钮切换文件顺序和执行流顺序。
+4. Agent 发布讲解时会弹出通知；也可以打开 Activity Bar 中的 Agent CodeWalk，或运行 `Agent CodeWalk: Open Latest Walkthrough`。
+5. 逐步查看：
+
+| 操作 | 快捷键 | 命令 |
+| --- | --- | --- |
+| 下一步 | `Alt+]` | `Agent CodeWalk: Next Step` |
+| 上一步 | `Alt+[` | `Agent CodeWalk: Previous Step` |
+| 切换文件顺序 / 执行流顺序 | `Alt+\` | `Agent CodeWalk: Switch Between File and Execution-Flow Order` |
+| 跳转到任意步骤 | `Ctrl+Alt+W`（macOS `Cmd+Alt+W`） | `Agent CodeWalk: Jump to Step` |
+| 对比该步骤修改前后 | — | `Agent CodeWalk: Compare Current Step With Before` |
+
+侧边栏会显示进度、当前步骤说明，以及按文件分组的完整步骤列表；每个被讲解的代码块上方还会出现 CodeLens，可以直接跳转或查看 diff。状态栏显示当前进度，点击可搜索跳转。界面提供英文和简体中文。
 
 用户无需配置额外模型或 API key。说明由刚完成修改的 Agent 生成，代码、baseline 和 walkthrough 只写入本机用户数据目录。
 
@@ -16,7 +26,9 @@ Agent CodeWalk 让 Codex、Claude Code 和 OpenCode 在完成代码修改后，�
 
 Agent 在首次文件 mutation 前调用 `begin_task`。Companion 记录 Git HEAD、当前 index，以及任务开始前已有 dirty/untracked 文件的必要快照。任务完成后，Agent 调用 `publish_walkthrough`；companion 计算本轮变化、验证每个文本 diff hunk 都有讲解步骤、补全稳定 anchor，然后原子发布 session。编辑器扩展读取 session，验证协议和 workspace fingerprint 后才允许打开文件。
 
-如果 Agent 错过了 `begin_task`，仍可降级发布。此时 companion 从当前 Git 状态尽力推导变化，session 会标记 `degradedBaseline`，扩展会持续提示范围可能包含任务开始前的修改。
+Companion 以 Git 仓库根目录作为 workspace 标识，因此 Agent 在子目录中启动时，发布的讲解仍然能被打开了仓库（或其子目录）的编辑器找到。可以用 `AGENT_CODEWALK_WORKSPACE` 覆盖。
+
+如果 Agent 错过了 `begin_task`，仍可降级发布。此时 companion 从当前 Git 状态尽力推导变化，session 会标记 `degradedBaseline`；未被任何步骤覆盖的 hunk 会记录在 `uncoveredHunks` 中并在 UI 中逐条列出，而不是被静默忽略。完整 baseline 下，未覆盖的 hunk 仍然直接拒绝发布。
 
 如果代码在发布后移动，扩展会在同一文件中寻找唯一的代码 hash；没有唯一匹配时会显示 stale，而不会高亮可能错误的位置。
 
@@ -24,10 +36,11 @@ Agent 在首次文件 mutation 前调用 `begin_task`。Companion 记录 Git HEA
 
 - 默认不发起网络请求，也不调用模型 API。
 - MCP companion 只通过 stdio 与本地 Agent 通信，不监听网络端口。
-- walkthrough 只保存路径、说明、行号和代码块 hash，不保存整份源码。
-- 路径必须位于当前 workspace；绝对路径和 `..` traversal 会被拒绝。
+- walkthrough 保存路径、说明、行号和代码块 hash，以及每个步骤所替换的那几行原始文本（用于 before/after 对比，单步上限 4000 字符）。不保存整份源码。
+- 路径必须位于发布该 session 的 workspace 根目录内；绝对路径、`..` traversal 和经由 symlink 的逃逸都会被拒绝。
 - 一键安装在写用户配置前显示目标路径并创建备份；安装失败会自动回滚本轮文件变更，遇到非本工具拥有的同名 skill 或 MCP 条目时拒绝覆盖。
 - 卸载只删除 ownership manifest 标记的 skill/adapter，以及 command 仍指向已安装 companion 的配置项。walkthrough session 默认保留。
+- `Agent CodeWalk: Diagnose Installation` 会直接询问各个 Agent 实际加载了哪些 MCP server，而不只是检查配置文件是否存在。
 
 ## 当前限制
 
@@ -35,6 +48,8 @@ Agent 在首次文件 mutation 前调用 `begin_task`。Companion 记录 Git HEA
 - 二进制、生成文件、Git submodule、超过 1 MiB 的文件和非 UTF-8 文件不会进入文本 diff 分析，但会在 `excludedChanges` 中列出原因。
 - 非 Git workspace 可以降级发布，但 UI 会提示 baseline 范围可能不完整。
 - 整个文件被删除时没有当前代码可高亮，步骤会保留说明并显示 target unavailable。
+- 纯新增的代码块没有"修改前"可对比，该步骤不会提供 diff。
+- 集成只写用户级配置；project 级安装尚未提供，见 `docs/roadmap.md`。
 
 ## 开发
 
@@ -42,12 +57,14 @@ Agent 在首次文件 mutation 前调用 `begin_task`。Companion 记录 Git HEA
 
 ```bash
 corepack pnpm install
-cargo test --workspace
-corepack pnpm --filter agent-codewalk test
-corepack pnpm --filter agent-codewalk check
+corepack pnpm check
+corepack pnpm test
+cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
-cargo build --release
+cargo test --workspace
+corepack pnpm --filter agent-codewalk test:extension   # 需要显示环境（CI 使用 xvfb）
 corepack pnpm --filter agent-codewalk package
+node scripts/verify-agent-install.mjs                  # 确认各 Agent 真的加载了 companion
 ```
 
-协议定义位于 `protocol/walkthrough-v1.schema.json`。Rust companion 在 `crates/agent-codewalk-mcp`，编辑器扩展和 portable skill 在 `extension`。
+协议定义位于 `protocol/walkthrough-v1.schema.json`，正反例 fixture 位于 `protocol/fixtures/`，由 Rust 与 TypeScript 两侧共同断言。Rust companion 在 `crates/agent-codewalk-mcp`，编辑器扩展、portable skill 和本地化文案在 `extension`。到 v1.0 的计划见 `docs/roadmap.md`。
