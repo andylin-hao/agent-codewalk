@@ -431,9 +431,17 @@ fn has_generated_header(path: &Path) -> bool {
 }
 
 fn repository_path(workspace_root: &Path, git_root: &Path, relative_path: &str) -> Result<String> {
-    let workspace_relative = workspace_root.strip_prefix(git_root).map_err(|_| {
-        CodeWalkError::InvalidRequest("workspace is outside the recorded Git root".to_owned())
-    })?;
+    let canonical_workspace = workspace_root
+        .canonicalize()
+        .map_err(|error| CodeWalkError::io(workspace_root, error))?;
+    let canonical_git_root = git_root
+        .canonicalize()
+        .map_err(|error| CodeWalkError::io(git_root, error))?;
+    let workspace_relative = canonical_workspace
+        .strip_prefix(&canonical_git_root)
+        .map_err(|_| {
+            CodeWalkError::InvalidRequest("workspace is outside the recorded Git root".to_owned())
+        })?;
     Ok(workspace_relative
         .join(relative_path)
         .to_string_lossy()
@@ -526,7 +534,10 @@ fn git_bytes(current_dir: &Path, arguments: &[&str]) -> Result<Vec<u8>> {
 
 #[cfg(test)]
 mod tests {
-    use super::{diff_hunks, has_generated_header, is_generated_file, resolve_workspace_path};
+    use super::{
+        diff_hunks, has_generated_header, is_generated_file, repository_path,
+        resolve_workspace_path,
+    };
     use crate::model::ChangeKind;
     use std::{fs, path::Path};
     use tempfile::tempdir;
@@ -578,6 +589,18 @@ mod tests {
     #[test]
     fn rejects_parent_path_components() {
         assert!(resolve_workspace_path(Path::new("/workspace"), "../secret").is_err());
+    }
+
+    #[test]
+    fn canonicalizes_paths_before_calculating_the_repository_relative_path() {
+        let repository = tempdir().unwrap();
+        fs::create_dir(repository.path().join("nested")).unwrap();
+        let lexical_alias = repository.path().join("nested").join("..");
+
+        assert_eq!(
+            repository_path(repository.path(), &lexical_alias, "src/lib.rs").unwrap(),
+            "src/lib.rs"
+        );
     }
 
     #[test]
