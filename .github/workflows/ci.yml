@@ -16,7 +16,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
       - run: corepack enable
       - run: corepack pnpm install --frozen-lockfile
       - name: Verify the version is single-sourced
