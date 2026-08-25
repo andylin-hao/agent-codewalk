@@ -9,9 +9,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/agent-codewalk/agent-codewalk/blob/main/README.md">English</a> ·
-  <a href="https://github.com/agent-codewalk/agent-codewalk/blob/main/README.zh-CN.md">简体中文</a> ·
-  <a href="https://github.com/agent-codewalk/agent-codewalk">GitHub</a>
+  <a href="https://github.com/andylin-hao/agent-codewalk/blob/main/README.md">English</a> ·
+  <a href="https://github.com/andylin-hao/agent-codewalk/blob/main/README.zh-CN.md">简体中文</a> ·
+  <a href="https://github.com/andylin-hao/agent-codewalk">GitHub</a>
 </p>
 
 ![Agent CodeWalk product preview](media/hero.png)
@@ -57,7 +57,7 @@ codium --install-extension agent-codewalk.agent-codewalk
 ```
 
 Offline and pinned packages for Linux x64, Windows x64, macOS Intel, and macOS Apple
-silicon are attached to every [GitHub release](https://github.com/agent-codewalk/agent-codewalk/releases),
+silicon are attached to every [GitHub release](https://github.com/andylin-hao/agent-codewalk/releases),
 together with SHA-256 checksums.
 
 ## One-time agent setup
@@ -116,9 +116,9 @@ model API. The Rust companion communicates over standard input/output and never 
 on a port. Sessions keep paths, explanations, ranges, hashes, and a bounded amount of
 replaced text for step comparison; they do not copy whole source files.
 
-Read the complete [privacy and security model](https://github.com/agent-codewalk/agent-codewalk/blob/main/SECURITY.md),
-[architecture](https://github.com/agent-codewalk/agent-codewalk/blob/main/docs/architecture.md),
-and [troubleshooting guide](https://github.com/agent-codewalk/agent-codewalk/blob/main/docs/troubleshooting.md)
+Read the complete [privacy and security model](https://github.com/andylin-hao/agent-codewalk/blob/main/SECURITY.md),
+[architecture](https://github.com/andylin-hao/agent-codewalk/blob/main/docs/architecture.md),
+and [troubleshooting guide](https://github.com/andylin-hao/agent-codewalk/blob/main/docs/troubleshooting.md)
 in the project repository.
 
 ## Requirements
@@ -131,4 +131,4 @@ Browser-hosted editors cannot start the local companion. Remote SSH and WSL are
 supported by installing the matching package in the workspace extension host.
 
 Agent CodeWalk is open source under the
-[MIT License](https://github.com/agent-codewalk/agent-codewalk/blob/main/LICENSE).
+[MIT License](https://github.com/andylin-hao/agent-codewalk/blob/main/LICENSE).

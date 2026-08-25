@@ -33,7 +33,7 @@ links to evidence in the release pull request.
 - [ ] Architecture, troubleshooting, publishing, security, support, contributing, agent
   instructions, and roadmap are updated where the release changes their contract.
 - [ ] Repository, homepage, bug, license, security, and support links use the canonical
-  `agent-codewalk/agent-codewalk` location.
+  `andylin-hao/agent-codewalk` location.
 
 ## Automated quality gates
 

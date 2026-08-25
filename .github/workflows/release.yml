@@ -75,7 +75,7 @@ jobs:
     # Forks can build release artifacts, but only the canonical repository publishes the
     # official extension. Missing credentials there are a failed release, not a silent
     # registry skip.
-    if: ${{ github.repository_owner == 'agent-codewalk' }}
+    if: ${{ github.repository_owner == 'andylin-hao' }}
     env:
       VSCE_PAT: ${{ secrets.VSCE_PAT }}
       OVSX_PAT: ${{ secrets.OVSX_PAT }}

@@ -16,8 +16,8 @@
 <p align="center">
   <a href="https://marketplace.visualstudio.com/items?itemName=agent-codewalk.agent-codewalk"><img alt="Visual Studio Marketplace version" src="https://img.shields.io/visual-studio-marketplace/v/agent-codewalk.agent-codewalk?style=flat-square&label=VS%20Marketplace"></a>
   <a href="https://open-vsx.org/extension/agent-codewalk/agent-codewalk"><img alt="Open VSX version" src="https://img.shields.io/open-vsx/v/agent-codewalk/agent-codewalk?style=flat-square&label=Open%20VSX"></a>
-  <a href="https://github.com/agent-codewalk/agent-codewalk/releases"><img alt="Latest GitHub release" src="https://img.shields.io/github/v/release/agent-codewalk/agent-codewalk?style=flat-square"></a>
-  <a href="https://github.com/agent-codewalk/agent-codewalk/actions/workflows/ci.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/agent-codewalk/agent-codewalk/ci.yml?branch=main&style=flat-square&label=build"></a>
+  <a href="https://github.com/andylin-hao/agent-codewalk/releases"><img alt="Latest GitHub release" src="https://img.shields.io/github/v/release/andylin-hao/agent-codewalk?style=flat-square"></a>
+  <a href="https://github.com/andylin-hao/agent-codewalk/actions/workflows/ci.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/andylin-hao/agent-codewalk/ci.yml?branch=main&style=flat-square&label=build"></a>
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-5c6ac4?style=flat-square"></a>
 </p>
 
@@ -86,7 +86,7 @@ codium --install-extension agent-codewalk.agent-codewalk
 ### GitHub Releases
 
 Every tagged release also publishes platform-specific VSIX files and a `SHA256SUMS` file
-on [GitHub Releases](https://github.com/agent-codewalk/agent-codewalk/releases). Download
+on [GitHub Releases](https://github.com/andylin-hao/agent-codewalk/releases). Download
 the package matching the machine that runs the extension host:
 
 | Platform | Release asset |

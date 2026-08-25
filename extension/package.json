@@ -12,12 +12,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/agent-codewalk/agent-codewalk.git"
+    "url": "https://github.com/andylin-hao/agent-codewalk.git"
   },
   "bugs": {
-    "url": "https://github.com/agent-codewalk/agent-codewalk/issues"
+    "url": "https://github.com/andylin-hao/agent-codewalk/issues"
   },
-  "homepage": "https://github.com/agent-codewalk/agent-codewalk#readme",
+  "homepage": "https://github.com/andylin-hao/agent-codewalk#readme",
   "engines": {
     "vscode": "^1.96.0"
   },

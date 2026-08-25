@@ -30,14 +30,14 @@ Complete these steps before creating the first public tag.
 ### Canonical repository
 
 1. Create or transfer the public repository to
-   `https://github.com/agent-codewalk/agent-codewalk`.
+   `https://github.com/andylin-hao/agent-codewalk`.
 2. Make `main` the protected default branch and enable GitHub Actions.
 3. Enable private vulnerability reporting in the repository Security settings.
 4. Confirm the repository, homepage, bugs, badge, and documentation URLs all use the same
    canonical location.
 
 The release workflow publishes registries only when `github.repository_owner` is
-`agent-codewalk`; forks still build and test but cannot publish official packages.
+`andylin-hao`; forks still build and test but cannot publish official packages.
 
 ### Visual Studio Marketplace
 

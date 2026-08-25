@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping improve Agent CodeWalk. For setup and playback problems, try the [troubleshooting guide](https://github.com/agent-codewalk/agent-codewalk/blob/main/docs/troubleshooting.md) first. Do not report vulnerabilities here; use the private security form linked below.
+        Thanks for helping improve Agent CodeWalk. For setup and playback problems, try the [troubleshooting guide](https://github.com/andylin-hao/agent-codewalk/blob/main/docs/troubleshooting.md) first. Do not report vulnerabilities here; use the private security form linked below.
   - type: input
     id: version
     attributes:

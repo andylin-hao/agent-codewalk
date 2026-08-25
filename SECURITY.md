@@ -20,7 +20,7 @@ the report.
 ## Report a vulnerability privately
 
 Do not open a public issue for a suspected vulnerability or include exploit details in a
-public discussion. Use [GitHub private vulnerability reporting](https://github.com/agent-codewalk/agent-codewalk/security/advisories/new).
+public discussion. Use [GitHub private vulnerability reporting](https://github.com/andylin-hao/agent-codewalk/security/advisories/new).
 
 Include as much of the following as you can:
 

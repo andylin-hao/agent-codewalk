@@ -7,7 +7,7 @@ local logs.
 
 ## Where to ask
 
-- **Reproducible bug:** open a [GitHub issue](https://github.com/agent-codewalk/agent-codewalk/issues/new).
+- **Reproducible bug:** open a [GitHub issue](https://github.com/andylin-hao/agent-codewalk/issues/new).
 - **Feature or workflow idea:** open an issue describing the user problem before proposing
   a specific implementation.
 - **Implementation question:** start from [Architecture](docs/architecture.md) and

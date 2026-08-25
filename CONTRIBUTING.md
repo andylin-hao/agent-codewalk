@@ -25,7 +25,7 @@ not a public issue.
 Clone and bootstrap the workspace:
 
 ```bash
-git clone https://github.com/agent-codewalk/agent-codewalk.git
+git clone https://github.com/andylin-hao/agent-codewalk.git
 cd agent-codewalk
 corepack enable
 corepack pnpm install --frozen-lockfile
