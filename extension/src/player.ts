@@ -242,6 +242,7 @@ export class WalkthroughPlayer implements vscode.Disposable {
       sessions: this.sessions.map(
         (session): SessionSummary => ({
           id: session.walkthrough.id,
+          kind: session.walkthrough.kind,
           title: session.walkthrough.title,
           createdAt: session.walkthrough.createdAt,
           stepCount: session.walkthrough.steps.length,
@@ -257,6 +258,7 @@ export class WalkthroughPlayer implements vscode.Disposable {
             goal: walkthrough.task.goal,
             agent: walkthrough.agent.kind,
           }),
+      kind: walkthrough?.kind ?? "change",
       mode: this.mode,
       ...(step === undefined ? {} : { step }),
       stepNumber: step === undefined ? 0 : this.index + 1,

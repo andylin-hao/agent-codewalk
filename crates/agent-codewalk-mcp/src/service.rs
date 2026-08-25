@@ -16,8 +16,9 @@ use crate::{
     },
     model::{
         BeginTaskRequest, BeginTaskResult, ChangeHunk, ChangeKind, CodeAnchor, HunkDetail,
-        PublishWalkthroughRequest, PublishWalkthroughResult, StepInput, TaskStatusResult,
-        Walkthrough, WalkthroughAgent, WalkthroughStep, WalkthroughTask,
+        PublishExplanationRequest, PublishWalkthroughRequest, PublishWalkthroughResult, StepInput,
+        TaskStatusResult, Walkthrough, WalkthroughAgent, WalkthroughKind, WalkthroughStep,
+        WalkthroughTask,
     },
     storage::Storage,
 };
@@ -140,6 +141,7 @@ impl CodeWalkService {
         let walkthrough_id = Uuid::new_v4().to_string();
         let walkthrough = Walkthrough {
             schema_version: 1,
+            kind: WalkthroughKind::Change,
             id: walkthrough_id.clone(),
             workspace_fingerprint: Storage::workspace_fingerprint(&self.workspace_root),
             title: request.title,
@@ -196,6 +198,70 @@ impl CodeWalkService {
         })
     }
 
+    /// Publishes a tour of code that this task did not modify.
+    ///
+    /// Analysis and explanation requests produce no diff, so there is no baseline to
+    /// record, nothing to validate coverage against, and no previous text to show. The
+    /// steps must still point at code that exists in this workspace.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for invalid input, a step outside the workspace, a step whose
+    /// range does not exist, or a cyclic execution-flow graph.
+    pub fn publish_explanation(
+        &self,
+        request: PublishExplanationRequest,
+    ) -> Result<PublishWalkthroughResult> {
+        validate_common(&request.title, &request.summary, &request.steps)?;
+        validate_non_empty("topic", &request.topic)?;
+
+        let mut steps = Vec::with_capacity(request.steps.len());
+        for input in request.steps {
+            steps.push(self.explanation_step(input)?);
+        }
+        let file_order = file_order(&steps);
+        let flow_order = flow_order(&steps, &file_order)?;
+        let created_at = Utc::now().to_rfc3339();
+        let walkthrough_id = Uuid::new_v4().to_string();
+        let walkthrough = Walkthrough {
+            schema_version: 1,
+            kind: WalkthroughKind::Explanation,
+            id: walkthrough_id.clone(),
+            workspace_fingerprint: Storage::workspace_fingerprint(&self.workspace_root),
+            title: request.title,
+            summary: request.summary,
+            agent: WalkthroughAgent {
+                kind: request.agent,
+                session_id: request.session_id,
+            },
+            task: WalkthroughTask {
+                id: format!("explanation-{walkthrough_id}"),
+                goal: request.topic,
+                started_at: created_at.clone(),
+                completed_at: created_at.clone(),
+            },
+            created_at,
+            steps,
+            file_order,
+            flow_order,
+            changed_hunks: Vec::new(),
+            uncovered_hunks: Vec::new(),
+            excluded_changes: Vec::new(),
+            degraded_baseline: false,
+        };
+        let session_path =
+            self.storage
+                .write_session(&self.workspace_root, &walkthrough_id, &walkthrough)?;
+        Ok(PublishWalkthroughResult {
+            walkthrough_id,
+            session_path: session_path.to_string_lossy().into_owned(),
+            step_count: walkthrough.steps.len(),
+            changed_hunk_count: 0,
+            excluded_changes: Vec::new(),
+            warnings: Vec::new(),
+        })
+    }
+
     /// Idempotently removes an unpublished task baseline.
     ///
     /// # Errors
@@ -240,6 +306,32 @@ impl CodeWalkService {
         self.storage.pending_task_count(&self.workspace_root)
     }
 
+    /// Builds a step for a tour, which must point at code that exists right now.
+    fn explanation_step(&self, input: StepInput) -> Result<WalkthroughStep> {
+        let normalized_path = input.path.replace('\\', "/");
+        let absolute_path = resolve_workspace_path(&self.workspace_root, &normalized_path)?;
+        if !absolute_path.is_file() {
+            return Err(CodeWalkError::InvalidRequest(format!(
+                "explanation step {} points at {}, which is not a file in this workspace",
+                input.id, input.path
+            )));
+        }
+        let content = fs::read_to_string(&absolute_path)
+            .map_err(|error| CodeWalkError::io(&absolute_path, error))?;
+        let anchor = make_anchor(&content, &input)?;
+        Ok(WalkthroughStep {
+            id: input.id,
+            path: normalized_path,
+            title: input.title,
+            explanation: input.explanation,
+            change_kind: ChangeKind::Context,
+            anchor,
+            flow_after: input.flow_after,
+            target_available: true,
+            previous_text: None,
+        })
+    }
+
     fn enrich_step(
         &self,
         input: StepInput,
@@ -266,7 +358,7 @@ impl CodeWalkService {
         let change_kind = if renamed.contains(&normalized_path) {
             ChangeKind::Rename
         } else {
-            infer_change_kind(&overlapping)
+            infer_change_kind(&overlapping, !details.is_empty())
         };
         Ok(WalkthroughStep {
             id: input.id,
@@ -318,8 +410,18 @@ fn validate_publish_request(request: &PublishWalkthroughRequest) -> Result<()> {
     if let Some(goal) = &request.goal {
         validate_non_empty("goal", goal)?;
     }
-    validate_non_empty("title", &request.title)?;
-    validate_non_empty("summary", &request.summary)?;
+    validate_common(&request.title, &request.summary, &request.steps)
+}
+
+/// Validates the parts a change walkthrough and an explanation share.
+fn validate_common(title: &str, summary: &str, steps: &[StepInput]) -> Result<()> {
+    let request = CommonRequest {
+        title,
+        summary,
+        steps,
+    };
+    validate_non_empty("title", request.title)?;
+    validate_non_empty("summary", request.summary)?;
     if request.title.chars().count() > MAX_TITLE_CHARACTERS {
         return Err(CodeWalkError::InvalidRequest(format!(
             "title must contain at most {MAX_TITLE_CHARACTERS} characters"
@@ -341,7 +443,7 @@ fn validate_publish_request(request: &PublishWalkthroughRequest) -> Result<()> {
         )));
     }
     let mut identifiers = BTreeSet::new();
-    for step in &request.steps {
+    for step in request.steps {
         validate_non_empty("step.id", &step.id)?;
         validate_non_empty("step.path", &step.path)?;
         validate_non_empty("step.title", &step.title)?;
@@ -386,6 +488,13 @@ fn validate_publish_request(request: &PublishWalkthroughRequest) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// The fields both publication paths validate identically.
+struct CommonRequest<'a> {
+    title: &'a str,
+    summary: &'a str,
+    steps: &'a [StepInput],
 }
 
 /// Returns every changed hunk that no step overlaps, in publication order.
@@ -501,12 +610,21 @@ fn hash_text(value: &str) -> String {
     hex::encode(Sha256::digest(normalized.as_bytes()))
 }
 
-fn infer_change_kind(overlapping: &[&HunkDetail]) -> ChangeKind {
+/// Decides what a step's highlight means.
+///
+/// A step that overlaps no changed hunk is context: code the reader needs in order to
+/// follow the walkthrough, but which this task did not touch. That inference is only
+/// safe when the change set is actually known, so a baseline that produced no hunks at
+/// all still falls back to a modification.
+fn infer_change_kind(overlapping: &[&HunkDetail], change_set_is_known: bool) -> ChangeKind {
     let matching: Vec<ChangeKind> = overlapping.iter().map(|detail| detail.hunk.kind).collect();
     if matching.contains(&ChangeKind::Modify) || matching.len() > 1 {
-        ChangeKind::Modify
-    } else {
-        matching.first().copied().unwrap_or(ChangeKind::Modify)
+        return ChangeKind::Modify;
+    }
+    match matching.first().copied() {
+        Some(kind) => kind,
+        None if change_set_is_known => ChangeKind::Context,
+        None => ChangeKind::Modify,
     }
 }
 
@@ -585,8 +703,8 @@ fn flow_order(steps: &[WalkthroughStep], stable_order: &[String]) -> Result<Vec<
 #[cfg(test)]
 mod tests {
     use super::{
-        MAX_PREVIOUS_TEXT_CHARACTERS, describe_hunks, flow_order, make_anchor, previous_text,
-        resolve_workspace_root, uncovered_hunks,
+        MAX_PREVIOUS_TEXT_CHARACTERS, describe_hunks, flow_order, infer_change_kind, make_anchor,
+        previous_text, resolve_workspace_root, uncovered_hunks,
     };
     use crate::model::{
         ChangeHunk, ChangeKind, CodeAnchor, HunkDetail, StepInput, WalkthroughStep,
@@ -735,6 +853,42 @@ mod tests {
     fn rejects_an_unknown_flow_predecessor() {
         let steps = vec![step("a", &["missing"])];
         assert!(flow_order(&steps, &["a".to_owned()]).is_err());
+    }
+
+    #[test]
+    fn treats_a_step_outside_the_change_set_as_context() {
+        let overlapping: Vec<&HunkDetail> = Vec::new();
+        assert_eq!(infer_change_kind(&overlapping, true), ChangeKind::Context);
+    }
+
+    #[test]
+    fn keeps_calling_a_step_a_modification_when_the_change_set_is_unknown() {
+        let overlapping: Vec<&HunkDetail> = Vec::new();
+        assert_eq!(infer_change_kind(&overlapping, false), ChangeKind::Modify);
+    }
+
+    #[test]
+    fn reports_a_single_covered_hunk_with_its_own_kind() {
+        let added = HunkDetail {
+            hunk: ChangeHunk {
+                path: "src/lib.rs".to_owned(),
+                start_line: 1,
+                end_line: 2,
+                kind: ChangeKind::Add,
+            },
+            previous_text: String::new(),
+        };
+        assert_eq!(infer_change_kind(&[&added], true), ChangeKind::Add);
+    }
+
+    #[test]
+    fn reports_several_covered_hunks_as_a_modification() {
+        let first = detail("src/lib.rs", 1, 1, "one");
+        let second = detail("src/lib.rs", 2, 2, "two");
+        assert_eq!(
+            infer_change_kind(&[&first, &second], true),
+            ChangeKind::Modify
+        );
     }
 
     #[test]

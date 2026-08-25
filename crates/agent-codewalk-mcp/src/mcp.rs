@@ -5,7 +5,9 @@ use serde_json::{Value, json};
 
 use crate::{
     CodeWalkError, CodeWalkService, Result,
-    model::{BeginTaskRequest, PublishWalkthroughRequest, TaskIdRequest},
+    model::{
+        BeginTaskRequest, PublishExplanationRequest, PublishWalkthroughRequest, TaskIdRequest,
+    },
 };
 
 const MCP_PROTOCOL_VERSION: &str = "2025-06-18";
@@ -16,9 +18,10 @@ const MCP_PROTOCOL_VERSION: &str = "2025-06-18";
 /// from a shared directory. Server instructions reach any MCP client, so this text is
 /// what makes the tools usable rather than merely available.
 const INSTRUCTIONS: &str = "\
-Agent CodeWalk turns a coding task into a walkthrough the user can step through in \
-VS Code or Cursor.
+Agent CodeWalk turns work on a codebase into a walkthrough the user steps through in \
+VS Code or Cursor, with each block highlighted in place.
 
+If the task CHANGES files:
 1. Immediately before the first file mutation, call begin_task with the user's concrete \
 goal. Keep the returned taskId.
 2. Make the changes, run the tests, and update the documentation as usual.
@@ -29,8 +32,14 @@ explain what changed, why, and what the block now controls.
 the uncovered hunks if one does not; add steps and retry.
 5. Call abort_task if the task is canceled or ends without file changes.
 
-Use flowAfter only for genuine runtime or data-flow predecessors; file order is computed \
-for you. Do not write walkthrough files by hand.";
+If the task EXPLAINS code without changing it -- analyze, explain, review, trace, walk \
+me through, how does X work, where does Y happen -- call publish_explanation instead. It \
+needs no begin_task and no baseline. Give the answer in the summary, then one step per \
+block the reader must see, in the order that makes the mechanism clear. Still answer in \
+the conversation; the walkthrough is how the user reads the code alongside it.
+
+In both cases, use flowAfter only for genuine runtime or data-flow predecessors; file \
+order is computed for you. Do not write walkthrough files by hand.";
 
 #[derive(Debug, Deserialize)]
 struct ToolCall {
@@ -119,6 +128,10 @@ fn call_tool(service: &CodeWalkService, params: Value) -> Result<Value> {
             let request: PublishWalkthroughRequest = serde_json::from_value(call.arguments)?;
             serde_json::to_value(service.publish_walkthrough(request)?)?
         }
+        "publish_explanation" => {
+            let request: PublishExplanationRequest = serde_json::from_value(call.arguments)?;
+            serde_json::to_value(service.publish_explanation(request)?)?
+        }
         "abort_task" => {
             let request: TaskIdRequest = serde_json::from_value(call.arguments)?;
             serde_json::to_value(service.abort_task(&request.task_id)?)?
@@ -175,30 +188,25 @@ fn tool_definitions() -> Vec<Value> {
                     "goal": { "type": "string", "minLength": 1, "description": "Original task goal used only for a degraded publication without taskId." },
                     "agent": { "enum": ["codex", "claude-code", "opencode", "other"] },
                     "sessionId": { "type": "string", "minLength": 1 },
-                    "steps": {
-                        "type": "array",
-                        "minItems": 1,
-                        "maxItems": 500,
-                        "items": {
-                            "type": "object",
-                            "additionalProperties": false,
-                            "required": ["id", "path", "startLine", "endLine", "title", "explanation"],
-                            "properties": {
-                                "id": { "type": "string", "minLength": 1, "maxLength": 100 },
-                                "path": { "type": "string", "minLength": 1 },
-                                "startLine": { "type": "integer", "minimum": 1 },
-                                "endLine": { "type": "integer", "minimum": 1 },
-                                "title": { "type": "string", "minLength": 1, "maxLength": 200 },
-                                "explanation": { "type": "string", "minLength": 1, "maxLength": 10000 },
-                                "flowAfter": {
-                                    "type": "array",
-                                    "items": { "type": "string", "minLength": 1 },
-                                    "uniqueItems": true
-                                },
-                                "symbol": { "type": "string", "minLength": 1 }
-                            }
-                        }
-                    }
+                    "steps": steps_schema()
+                }
+            }
+        }),
+        json!({
+            "name": "publish_explanation",
+            "title": "Publish code explanation walkthrough",
+            "description": "Publish a navigable explanation of existing code, for a request to analyze, explain, review, trace, or walk through how something works when no files are being changed. The user steps through the explanation in their editor with each block highlighted, instead of reading a wall of prose. Requires no begin_task and no baseline; every step must point at code that exists right now. Use publish_walkthrough instead when the task modified files.",
+            "inputSchema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["title", "summary", "topic", "steps"],
+                "properties": {
+                    "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+                    "summary": { "type": "string", "minLength": 1, "maxLength": 10000, "description": "The answer in a few sentences, for a reader who has not opened a file yet." },
+                    "topic": { "type": "string", "minLength": 1, "description": "The question this explanation answers, in the user's terms." },
+                    "agent": { "enum": ["codex", "claude-code", "opencode", "other"] },
+                    "sessionId": { "type": "string", "minLength": 1 },
+                    "steps": steps_schema()
                 }
             }
         }),
@@ -213,6 +221,35 @@ fn tool_definitions() -> Vec<Value> {
             "Check whether a task baseline still exists in the current workspace.",
         ),
     ]
+}
+
+/// The step array both publication tools accept.
+fn steps_schema() -> Value {
+    json!({
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 500,
+        "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "path", "startLine", "endLine", "title", "explanation"],
+            "properties": {
+                "id": { "type": "string", "minLength": 1, "maxLength": 100 },
+                "path": { "type": "string", "minLength": 1, "description": "Workspace-relative path." },
+                "startLine": { "type": "integer", "minimum": 1 },
+                "endLine": { "type": "integer", "minimum": 1 },
+                "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+                "explanation": { "type": "string", "minLength": 1, "maxLength": 10000 },
+                "flowAfter": {
+                    "type": "array",
+                    "items": { "type": "string", "minLength": 1 },
+                    "uniqueItems": true,
+                    "description": "Steps that must be understood before this one, for the execution-flow order."
+                },
+                "symbol": { "type": "string", "minLength": 1 }
+            }
+        }
+    })
 }
 
 fn task_tool(name: &str, title: &str, description: &str) -> Value {
@@ -260,7 +297,7 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
-    fn lists_the_four_public_tools() {
+    fn lists_every_public_tool() {
         let workspace = tempdir().unwrap();
         let state = tempdir().unwrap();
         let service = CodeWalkService::new(
@@ -273,7 +310,78 @@ mod tests {
             &json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/list" }),
         )
         .unwrap();
-        assert_eq!(response["result"]["tools"].as_array().unwrap().len(), 4);
+        let names: Vec<&str> = response["result"]["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|tool| tool["name"].as_str())
+            .collect();
+        assert_eq!(
+            names,
+            vec![
+                "begin_task",
+                "publish_walkthrough",
+                "publish_explanation",
+                "abort_task",
+                "get_status"
+            ]
+        );
+    }
+
+    #[test]
+    fn describes_publish_explanation_in_the_words_a_user_would_use() {
+        let workspace = tempdir().unwrap();
+        let state = tempdir().unwrap();
+        let service = CodeWalkService::new(
+            workspace.path(),
+            Storage::new(state.path().to_owned()).unwrap(),
+        )
+        .unwrap();
+        let response = handle_request(
+            &service,
+            &json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/list" }),
+        )
+        .unwrap();
+        let description = response["result"]["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|tool| tool["name"] == "publish_explanation")
+            .and_then(|tool| tool["description"].as_str())
+            .unwrap()
+            .to_lowercase();
+        for trigger in [
+            "analyze",
+            "explain",
+            "trace",
+            "walk through",
+            "how something works",
+        ] {
+            assert!(
+                description.contains(trigger),
+                "the description must mention {trigger}"
+            );
+        }
+    }
+
+    #[test]
+    fn instructions_cover_both_publication_paths() {
+        let workspace = tempdir().unwrap();
+        let state = tempdir().unwrap();
+        let service = CodeWalkService::new(
+            workspace.path(),
+            Storage::new(state.path().to_owned()).unwrap(),
+        )
+        .unwrap();
+        let response = handle_request(
+            &service,
+            &json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize" }),
+        )
+        .unwrap();
+        let instructions = response["result"]["instructions"].as_str().unwrap();
+        assert!(instructions.contains("publish_walkthrough"));
+        assert!(instructions.contains("publish_explanation"));
+        assert!(instructions.contains("no begin_task"));
     }
 
     #[test]

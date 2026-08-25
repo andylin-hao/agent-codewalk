@@ -173,6 +173,7 @@ export function html(messages: Messages = messagesFor("en")): string {
     <header class="header">
       <div class="header-row">
         <h1 id="title"></h1>
+        <span id="kind-pill" class="pill" hidden></span>
         <button id="refresh" class="icon" type="button" title="${escapeHtml(messages.reload)}" aria-label="${escapeHtml(messages.reload)}">&#x21bb;</button>
       </div>
       <p id="summary" class="muted"></p>
@@ -280,6 +281,8 @@ function styles(): string {
     }
     .card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
     .badge { font-size: .72em; letter-spacing: .04em; text-transform: uppercase; padding: 2px 7px; border-radius: 10px; border: 1px solid currentColor; }
+    .badge.context { color: var(--vscode-editorInfo-foreground, var(--vscode-descriptionForeground)); }
+    .pill { flex: none; font-size: .7em; letter-spacing: .04em; text-transform: uppercase; padding: 2px 7px; border-radius: 10px; color: var(--vscode-editorInfo-foreground, var(--vscode-descriptionForeground)); border: 1px solid currentColor; }
     .badge.add { color: var(--vscode-gitDecoration-addedResourceForeground); }
     .badge.modify { color: var(--vscode-gitDecoration-modifiedResourceForeground); }
     .badge.delete { color: var(--vscode-gitDecoration-deletedResourceForeground); }
@@ -377,8 +380,11 @@ function script(): string {
       text('step-title', state.step.title);
       text('explanation', state.step.explanation);
       text('path', state.step.path + ':' + state.step.anchor.startLine + '-' + state.step.anchor.endLine);
-      text('kind', state.step.changeKind);
+      text('kind', MESSAGES.kinds[state.step.changeKind] || state.step.changeKind);
       byId('kind').className = 'badge ' + state.step.changeKind;
+      const isExplanation = state.kind === 'explanation';
+      byId('kind-pill').hidden = !isExplanation;
+      text('kind-pill', MESSAGES.explanationLabel);
       text('position', format(MESSAGES.stepCounter, state.stepNumber, state.stepCount));
       text('progress-label', state.stepNumber + '/' + state.stepCount);
       byId('bar').style.width = (state.stepCount === 0 ? 0 : (state.stepNumber / state.stepCount) * 100) + '%';
@@ -399,7 +405,8 @@ function script(): string {
       select.replaceChildren.apply(select, state.sessions.map((session) => {
         const option = document.createElement('option');
         option.value = session.id;
-        option.textContent = session.title + '  ·  ' + session.stepCount + ' ' + MESSAGES.stepUnit;
+        const label = session.kind === 'explanation' ? MESSAGES.explanationLabel : MESSAGES.changeLabel;
+        option.textContent = label + '  ·  ' + session.title + '  ·  ' + session.stepCount + ' ' + MESSAGES.stepUnit;
         option.selected = session.id === state.activeSessionId;
         return option;
       }));

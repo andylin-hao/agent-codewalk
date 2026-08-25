@@ -1,5 +1,6 @@
 {
   "schemaVersion": 1,
+  "kind": "change",
   "id": "fixture-session",
   "workspaceFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "title": "Add readiness helper",

@@ -42,14 +42,23 @@ for. Work through it on at least one platform before tagging.
 17. Edit one of the explained blocks, then revisit its step: it reports stale rather
     than highlighting the wrong range.
 
+## An explanation
+
+18. Ask the agent to explain how something in the repository works, without changing
+    anything. It publishes an explanation without calling `begin_task`.
+19. The sidebar marks it as an explanation, the highlights are neutral rather than
+    diff-coloured, and no diff is offered.
+20. Ask a question that points at no code ("how should I configure this?"). Nothing is
+    published.
+
 ## Degraded and edge paths
 
-18. Ask an agent to change code without calling `begin_task`. The session publishes,
+21. Ask an agent to change code without calling `begin_task`. The session publishes,
     is marked as degraded, and lists any unexplained hunks.
-19. Start an agent in a subdirectory of the repository. Its walkthrough is still found.
+22. Start an agent in a subdirectory of the repository. Its walkthrough is still found.
 
 ## Removal
 
-20. **Agent CodeWalk: Remove Agent Integrations** removes only the entries this tool
+23. **Agent CodeWalk: Remove Agent Integrations** removes only the entries this tool
     owns. Unrelated MCP servers and hooks in the same files survive.
-21. Uninstall the extension; the data directory keeps published sessions.
+24. Uninstall the extension; the data directory keeps published sessions.

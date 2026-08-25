@@ -1,8 +1,10 @@
 # Agent CodeWalk
 
-Review code changes made by Codex, Claude Code, and OpenCode as a guided walkthrough inside VS Code or Cursor.
+Read what Codex, Claude Code, and OpenCode did — or explained — as a guided walkthrough inside VS Code or Cursor.
 
-- Step through every explained code block with theme-aware highlighting, from the sidebar, a code lens, the status bar, or the keyboard.
+- **After a change**: step through every modified block, in file order or in the order the code runs.
+- **After a question**: ask an agent to analyze, explain, review, or trace existing code, and step through its answer with each block highlighted instead of hunting for the line numbers it mentioned.
+- Step through from the sidebar, a code lens, the status bar, or the keyboard, with theme-aware highlighting.
 - Switch between file order and execution-flow order.
 - Compare a step with the code it replaced, without leaving the walkthrough.
 - Detect stale or ambiguously moved code instead of opening the wrong range.
@@ -12,7 +14,7 @@ Review code changes made by Codex, Claude Code, and OpenCode as a guided walkthr
 
 1. Run **Agent CodeWalk: Setup Agent Integrations**. It shows every file it will touch before touching it.
 2. Restart active agent sessions so they load the MCP server.
-3. Ask Codex, Claude Code, or OpenCode to change code as usual.
+3. Ask Codex, Claude Code, or OpenCode to change code, or to explain how something works.
 4. When it reports that it is done, open the Agent CodeWalk view, or accept the notification.
 
 | Action | Shortcut |

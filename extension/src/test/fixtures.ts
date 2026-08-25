@@ -5,7 +5,13 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import type { ChangeHunk, ChangeKind, Walkthrough, WalkthroughStep } from "../types.js";
+import type {
+  ChangeHunk,
+  ChangeKind,
+  Walkthrough,
+  WalkthroughKind,
+  WalkthroughStep,
+} from "../types.js";
 
 export interface StepOptions {
   readonly id: string;
@@ -23,6 +29,7 @@ export interface StepOptions {
 
 export interface WalkthroughOptions {
   readonly id?: string;
+  readonly kind?: WalkthroughKind;
   readonly title?: string;
   readonly createdAt?: string;
   readonly degradedBaseline?: boolean;
@@ -69,6 +76,7 @@ export function buildWalkthrough(
   const identifiers = steps.map((step) => step.id);
   return {
     schemaVersion: 1,
+    kind: options.kind ?? "change",
     id: options.id ?? "session-1",
     workspaceFingerprint: fingerprintOf(workspaceRoot),
     title: options.title ?? "Add readiness helper",
@@ -84,12 +92,7 @@ export function buildWalkthrough(
     steps,
     fileOrder: options.fileOrder ?? identifiers,
     flowOrder: options.flowOrder ?? identifiers,
-    changedHunks: steps.map((step) => ({
-      path: step.path,
-      startLine: step.anchor.startLine,
-      endLine: step.anchor.endLine,
-      kind: step.changeKind === "rename" ? "modify" : step.changeKind,
-    })),
+    changedHunks: options.kind === "explanation" ? [] : steps.map(changedHunkFor),
     uncoveredHunks: options.uncoveredHunks ?? [],
     excludedChanges: [],
     degradedBaseline: options.degradedBaseline ?? false,
@@ -139,6 +142,16 @@ export async function writeSession(
   const sessionPath = path.join(directory, `${walkthrough.id}.json`);
   await fs.writeFile(sessionPath, JSON.stringify(walkthrough, undefined, 2), "utf8");
   return sessionPath;
+}
+
+/** Maps a step onto the hunk a real publication would have recorded for it. */
+function changedHunkFor(step: WalkthroughStep): ChangeHunk {
+  return {
+    path: step.path,
+    startLine: step.anchor.startLine,
+    endLine: step.anchor.endLine,
+    kind: step.changeKind === "add" || step.changeKind === "delete" ? step.changeKind : "modify",
+  };
 }
 
 async function createDirectory(base: string, name: string): Promise<string> {

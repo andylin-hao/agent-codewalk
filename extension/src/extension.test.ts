@@ -48,6 +48,7 @@ function activateExtension(): void {
 function emptyState(overrides: Partial<ViewState> = {}): ViewState {
   return {
     sessions: [],
+    kind: "change",
     mode: "file",
     stepNumber: 0,
     stepCount: 0,
@@ -206,6 +207,42 @@ describe("activated commands", () => {
     await vi.waitFor(
       () => {
         expect(mockState.shownMessages.join("\n")).toContain("is ready with 1 step(s)");
+      },
+      { timeout: 8_000 },
+    );
+  }, 12_000);
+
+  it("says an explanation is ready rather than a change", async () => {
+    activateExtension();
+    await vi.waitFor(() => {
+      expect(mockState.executedCommands.some((entry) => entry.command === "setContext")).toBe(true);
+    });
+
+    await writeWorkspaceFile(workspace.workspaceRoot, "src/lib.rs", "fn ready() {}\n");
+    await writeSession(
+      workspace.dataDirectory,
+      workspace.workspaceRoot,
+      buildWalkthrough(
+        workspace.workspaceRoot,
+        [
+          buildStep({
+            id: "ready",
+            path: "src/lib.rs",
+            startLine: 1,
+            endLine: 1,
+            text: "fn ready() {}",
+            changeKind: "context",
+          }),
+        ],
+        { id: "explained", kind: "explanation", title: "How readiness is decided" },
+      ),
+    );
+
+    await vi.waitFor(
+      () => {
+        expect(mockState.shownMessages.join("\n")).toContain(
+          "an explanation of “How readiness is decided” is ready",
+        );
       },
       { timeout: 8_000 },
     );

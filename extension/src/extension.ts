@@ -6,7 +6,7 @@ import { format, messagesFor } from "./i18n.js";
 import { IntegrationInstaller } from "./installer.js";
 import { WalkthroughPlayer } from "./player.js";
 import { SessionStore } from "./storage.js";
-import type { ChangeKind, ViewState } from "./types.js";
+import type { ChangeKind, ViewState, WalkthroughKind } from "./types.js";
 import { WalkthroughViewProvider } from "./webview.js";
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -41,7 +41,11 @@ export function activate(context: vscode.ExtensionContext): void {
       );
     }),
     player.onDidPublishSession((session) => {
-      void announce(session.walkthrough.title, session.walkthrough.steps.length);
+      void announce(
+        session.walkthrough.kind,
+        session.walkthrough.title,
+        session.walkthrough.steps.length,
+      );
     }),
     command("agentCodeWalk.openLatest", async () => {
       await vscode.commands.executeCommand("agentCodeWalk.walkthrough.focus");
@@ -105,7 +109,11 @@ export async function jumpToStep(player: WalkthroughPlayer): Promise<void> {
   }
 }
 
-async function announce(title: string, stepCount: number): Promise<void> {
+async function announce(
+  kind: WalkthroughKind,
+  title: string,
+  stepCount: number,
+): Promise<void> {
   const enabled = vscode.workspace
     .getConfiguration("agentCodeWalk")
     .get<boolean>("notifyOnPublish", true);
@@ -113,8 +121,10 @@ async function announce(title: string, stepCount: number): Promise<void> {
     return;
   }
   const messages = messagesFor(vscode.env.language);
+  const template =
+    kind === "explanation" ? messages.explanationPublishedNotice : messages.publishedNotice;
   const choice = await vscode.window.showInformationMessage(
-    format(messages.publishedNotice, title, stepCount),
+    format(template, title, stepCount),
     messages.openWalkthrough,
   );
   if (choice === messages.openWalkthrough) {
@@ -186,6 +196,14 @@ function createDecorations(): Readonly<Record<ChangeKind, vscode.TextEditorDecor
       backgroundColor: new vscode.ThemeColor("editor.wordHighlightBackground"),
       borderColor: new vscode.ThemeColor("gitDecoration.renamedResourceForeground"),
       overviewRulerColor: new vscode.ThemeColor("gitDecoration.renamedResourceForeground"),
+    }),
+    // Nothing changed here. The highlight is neutral so it does not read as a diff,
+    // which is also every step of an explanation walkthrough.
+    context: vscode.window.createTextEditorDecorationType({
+      ...common,
+      backgroundColor: new vscode.ThemeColor("editor.wordHighlightBackground"),
+      borderColor: new vscode.ThemeColor("editorInfo.foreground"),
+      overviewRulerColor: new vscode.ThemeColor("editorInfo.foreground"),
     }),
   };
 }

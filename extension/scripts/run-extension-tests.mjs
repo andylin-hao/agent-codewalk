@@ -40,6 +40,7 @@ async function publishWalkthrough() {
   ];
   const walkthrough = {
     schemaVersion: 1,
+    kind: "change",
     id: "host-session",
     workspaceFingerprint: fingerprint,
     title: "Add readiness helper",

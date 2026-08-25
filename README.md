@@ -6,7 +6,9 @@ Agent CodeWalk 让 Codex、Claude Code 和 OpenCode 在完成代码修改后，�
 
 1. 从 VS Code Marketplace、Open VSX 或 release 中安装 `Agent CodeWalk` 扩展。
 2. 运行 `Agent CodeWalk: Setup Agent Integrations`。确认后，扩展会安装本地 MCP companion，并为检测到的 Agent 配置 MCP 和 portable skill；Codex/Claude Code 还会获得任务生命周期提醒。Codex 会要求通过 `/hooks` 检查并信任新安装的用户级 Stop hook。
-3. 重启已有 Agent session，然后正常要求 Agent 修改代码。
+3. 重启已有 Agent session，然后正常使用 Agent：
+   - **让它修改代码** —— 完成后会得到一份讲解本次修改的 walkthrough。
+   - **让它分析或讲解代码**（"这个模块怎么工作""跟一遍请求路径""解释一下鉴权流程"）—— 即使一个文件都没改，也会得到一份可以逐步跳转的讲解。
 4. Agent 发布讲解时会弹出通知；也可以打开 Activity Bar 中的 Agent CodeWalk，或运行 `Agent CodeWalk: Open Latest Walkthrough`。
 5. 逐步查看：
 
@@ -21,6 +23,21 @@ Agent CodeWalk 让 Codex、Claude Code 和 OpenCode 在完成代码修改后，�
 侧边栏会显示进度、当前步骤说明，以及按文件分组的完整步骤列表；每个被讲解的代码块上方还会出现 CodeLens，可以直接跳转或查看 diff。状态栏显示当前进度，点击可搜索跳转。界面提供英文和简体中文。
 
 用户无需配置额外模型或 API key。说明由刚完成修改的 Agent 生成，代码、baseline 和 walkthrough 只写入本机用户数据目录。
+
+## 两种 walkthrough
+
+| | 修改讲解（change） | 代码讲解（explanation） |
+| --- | --- | --- |
+| 触发 | Agent 修改了文件 | 要求分析 / 讲解 / review / 跟踪现有代码 |
+| 工具 | `begin_task` → `publish_walkthrough` | 直接 `publish_explanation` |
+| baseline | 需要，用于计算 diff | 不需要 |
+| 覆盖校验 | 每个变更 hunk 都必须被某一步覆盖 | 不适用 |
+| 高亮 | 按 add / modify / delete / rename 着色 | 中性色（context） |
+| diff | 可对比修改前后 | 无（代码没有变化） |
+
+修改讲解中的某一步也可以指向本次没有改动、但读者需要看到的代码，它会被记为 `context` 并以更安静的方式高亮。
+
+Agent 在给出讲解的同时仍然会在对话里正常回答；walkthrough 是让你对照代码阅读，而不是替代回答。
 
 ## 工作原理
 
@@ -48,7 +65,8 @@ Companion 以 Git 仓库根目录作为 workspace 标识，因此 Agent 在子�
 - 二进制、生成文件、Git submodule、超过 1 MiB 的文件和非 UTF-8 文件不会进入文本 diff 分析，但会在 `excludedChanges` 中列出原因。
 - 非 Git workspace 可以降级发布，但 UI 会提示 baseline 范围可能不完整。
 - 整个文件被删除时没有当前代码可高亮，步骤会保留说明并显示 target unavailable。
-- 纯新增的代码块没有"修改前"可对比，该步骤不会提供 diff。
+- 纯新增的代码块没有"修改前"可对比，该步骤不会提供 diff；代码讲解同理。
+- 代码讲解的每一步都必须指向当前存在的代码，否则发布会被拒绝。
 - 集成只写用户级配置；project 级安装尚未提供，见 `docs/roadmap.md`。
 
 ## 开发

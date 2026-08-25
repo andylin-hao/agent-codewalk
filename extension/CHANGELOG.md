@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.3.0
+
+### Explanation walkthroughs
+
+- A walkthrough no longer has to be about a change. Ask an agent to analyze, explain,
+  review, or trace existing code and it can publish an explanation you step through with
+  each block highlighted, instead of prose that names line numbers you have to find.
+- New `publish_explanation` MCP tool. It needs no `begin_task`, no baseline, and no
+  coverage validation, but every step must point at code that exists right now.
+- A step of a change walkthrough may now point at code the task did not touch, when the
+  reader needs it to follow the change. It is recorded as `context` and highlighted more
+  quietly than a diff.
+- The sidebar marks an explanation, labels step badges in the editor's language, and
+  distinguishes both kinds in the session picker.
+- The skill, the MCP server instructions, and the prompt reminder all describe both
+  paths and when to choose each.
+
+### Protocol
+
+- `kind` (`change` or `explanation`) is now a required walkthrough field, and
+  `changeKind` accepts `context`. Sessions published by 0.2.x are not readable by 0.3.0.
+- An explanation may not carry changed hunks, uncovered hunks, a degraded baseline,
+  replaced text, or an unavailable target. Six negative fixtures enforce it in both
+  languages.
+
 ## 0.2.0
 
 ### Walkthrough view

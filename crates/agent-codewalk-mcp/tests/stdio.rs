@@ -11,7 +11,10 @@ use std::{
     process::{Child, ChildStdin, ChildStdout, Command, Stdio},
 };
 
-use agent_codewalk_mcp::{model::Walkthrough, storage::Storage};
+use agent_codewalk_mcp::{
+    model::{ChangeKind, Walkthrough, WalkthroughKind},
+    storage::Storage,
+};
 use serde_json::{Value, json};
 use tempfile::tempdir;
 
@@ -112,6 +115,7 @@ fn publishes_a_session_an_editor_can_load_when_started_in_a_subdirectory() {
         vec![
             "begin_task",
             "publish_walkthrough",
+            "publish_explanation",
             "abort_task",
             "get_status"
         ]
@@ -218,6 +222,87 @@ fn reports_an_incomplete_walkthrough_as_a_tool_error() {
     assert_eq!(result["isError"].as_bool(), Some(true));
     let text = result["content"][0]["text"].as_str().unwrap_or_default();
     assert!(text.contains("src/lib.rs"), "unexpected message: {text}");
+    companion.shutdown();
+}
+
+#[test]
+fn publishes_an_explanation_without_a_baseline_or_a_repository() {
+    let workspace = tempdir().unwrap();
+    let state = tempdir().unwrap();
+    // Deliberately not a Git repository: explaining code must not require one.
+    fs::create_dir_all(workspace.path().join("src")).unwrap();
+    fs::write(
+        workspace.path().join("src/lib.rs"),
+        "pub fn value() -> i32 {\n    1\n}\n",
+    )
+    .unwrap();
+    let mut companion = Companion::start(workspace.path(), state.path());
+
+    let published = companion.call_tool(
+        "publish_explanation",
+        &json!({
+            "title": "How the default value is produced",
+            "summary": "One helper owns the default and every caller reads it from there.",
+            "topic": "Explain how the default value works",
+            "agent": "claude-code",
+            "steps": [{
+                "id": "value",
+                "path": "src/lib.rs",
+                "startLine": 1,
+                "endLine": 3,
+                "title": "The helper that owns the default",
+                "explanation": "Callers never hard-code the default; they read it from here."
+            }]
+        }),
+    );
+    assert_eq!(published["stepCount"].as_u64(), Some(1));
+    assert_eq!(published["changedHunkCount"].as_u64(), Some(0));
+
+    let walkthrough: Walkthrough =
+        serde_json::from_slice(&fs::read(published["sessionPath"].as_str().unwrap()).unwrap())
+            .unwrap();
+    assert_eq!(walkthrough.kind, WalkthroughKind::Explanation);
+    assert_eq!(walkthrough.task.goal, "Explain how the default value works");
+    assert_eq!(walkthrough.steps[0].change_kind, ChangeKind::Context);
+    assert!(walkthrough.steps[0].previous_text.is_none());
+    assert!(walkthrough.changed_hunks.is_empty());
+    assert!(!walkthrough.degraded_baseline);
+
+    companion.shutdown();
+}
+
+#[test]
+fn refuses_to_explain_a_file_that_does_not_exist() {
+    let workspace = tempdir().unwrap();
+    let state = tempdir().unwrap();
+    initialize_repository(workspace.path());
+    let mut companion = Companion::start(workspace.path(), state.path());
+
+    let response = companion.request(
+        "tools/call",
+        &json!({
+            "name": "publish_explanation",
+            "arguments": {
+                "title": "Missing",
+                "summary": "Points at a file that is not there.",
+                "topic": "Explain the missing module",
+                "steps": [{
+                    "id": "absent",
+                    "path": "src/absent.rs",
+                    "startLine": 1,
+                    "endLine": 1,
+                    "title": "Absent",
+                    "explanation": "There is nothing here."
+                }]
+            }
+        }),
+    );
+
+    assert_eq!(response["result"]["isError"].as_bool(), Some(true));
+    let text = response["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap_or_default();
+    assert!(text.contains("src/absent.rs"), "unexpected message: {text}");
     companion.shutdown();
 }
 

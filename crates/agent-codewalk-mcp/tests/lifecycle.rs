@@ -2,7 +2,10 @@ use std::{fs, path::Path, process::Command};
 
 use agent_codewalk_mcp::{
     CodeWalkService,
-    model::{AgentKind, BeginTaskRequest, PublishWalkthroughRequest, StepInput, Walkthrough},
+    model::{
+        AgentKind, BeginTaskRequest, ChangeKind, PublishExplanationRequest,
+        PublishWalkthroughRequest, StepInput, Walkthrough, WalkthroughKind,
+    },
     storage::Storage,
 };
 use tempfile::tempdir;
@@ -353,6 +356,165 @@ fn records_the_replaced_text_so_a_step_can_show_a_diff() {
         "the step must carry the line it replaced"
     );
     assert!(walkthrough.uncovered_hunks.is_empty());
+}
+
+#[test]
+fn publishes_an_explanation_of_unchanged_code() {
+    let workspace = tempdir().unwrap();
+    let state = tempdir().unwrap();
+    initialize_repository(workspace.path());
+    let service = CodeWalkService::new(
+        workspace.path(),
+        Storage::new(state.path().to_owned()).unwrap(),
+    )
+    .unwrap();
+
+    let result = service
+        .publish_explanation(PublishExplanationRequest {
+            title: "How the default value is produced".to_owned(),
+            summary: "One helper owns the default.".to_owned(),
+            topic: "Explain the default value".to_owned(),
+            steps: vec![StepInput {
+                id: "value".to_owned(),
+                path: "src/lib.rs".to_owned(),
+                start_line: 1,
+                end_line: 3,
+                title: "The helper".to_owned(),
+                explanation: "Callers read the default from here.".to_owned(),
+                flow_after: Vec::new(),
+                symbol: None,
+            }],
+            agent: AgentKind::Codex,
+            session_id: None,
+        })
+        .unwrap();
+
+    assert_eq!(result.changed_hunk_count, 0);
+    assert!(result.warnings.is_empty());
+    let walkthrough: Walkthrough =
+        serde_json::from_slice(&fs::read(result.session_path).unwrap()).unwrap();
+    assert_eq!(walkthrough.kind, WalkthroughKind::Explanation);
+    assert_eq!(walkthrough.steps[0].change_kind, ChangeKind::Context);
+    assert_eq!(walkthrough.steps[0].anchor.normalized_hash.len(), 64);
+    assert_eq!(service.pending_task_count().unwrap(), 0);
+}
+
+#[test]
+fn an_explanation_needs_no_task_and_leaves_none_behind() {
+    let workspace = tempdir().unwrap();
+    let state = tempdir().unwrap();
+    initialize_repository(workspace.path());
+    let service = CodeWalkService::new(
+        workspace.path(),
+        Storage::new(state.path().to_owned()).unwrap(),
+    )
+    .unwrap();
+    let task = service
+        .begin_task(BeginTaskRequest {
+            goal: "An unrelated change".to_owned(),
+            title: None,
+            agent: AgentKind::Other,
+            session_id: None,
+        })
+        .unwrap();
+
+    service
+        .publish_explanation(PublishExplanationRequest {
+            title: "How the default value is produced".to_owned(),
+            summary: "One helper owns the default.".to_owned(),
+            topic: "Explain the default value".to_owned(),
+            steps: vec![StepInput {
+                id: "value".to_owned(),
+                path: "src/lib.rs".to_owned(),
+                start_line: 1,
+                end_line: 3,
+                title: "The helper".to_owned(),
+                explanation: "Callers read the default from here.".to_owned(),
+                flow_after: Vec::new(),
+                symbol: None,
+            }],
+            agent: AgentKind::Other,
+            session_id: None,
+        })
+        .unwrap();
+
+    assert!(
+        service.get_status(&task.task_id).unwrap().exists,
+        "an explanation must not consume an unrelated task baseline"
+    );
+}
+
+#[test]
+fn marks_a_step_outside_the_change_set_as_context() {
+    let workspace = tempdir().unwrap();
+    let state = tempdir().unwrap();
+    initialize_repository(workspace.path());
+    fs::write(
+        workspace.path().join("src/caller.rs"),
+        "pub fn caller() {\n    let _ = crate::value();\n}\n",
+    )
+    .unwrap();
+    let service = CodeWalkService::new(
+        workspace.path(),
+        Storage::new(state.path().to_owned()).unwrap(),
+    )
+    .unwrap();
+    let task = service
+        .begin_task(BeginTaskRequest {
+            goal: "Change the default".to_owned(),
+            title: None,
+            agent: AgentKind::Other,
+            session_id: None,
+        })
+        .unwrap();
+    fs::write(
+        workspace.path().join("src/lib.rs"),
+        "pub fn value() -> i32 {\n    6\n}\n",
+    )
+    .unwrap();
+
+    let result = service
+        .publish_walkthrough(PublishWalkthroughRequest {
+            task_id: Some(task.task_id),
+            title: "Change the default".to_owned(),
+            summary: "The default changed, and here is who reads it.".to_owned(),
+            steps: vec![
+                StepInput {
+                    id: "value".to_owned(),
+                    path: "src/lib.rs".to_owned(),
+                    start_line: 2,
+                    end_line: 2,
+                    title: "The new default".to_owned(),
+                    explanation: "The helper returns the updated default.".to_owned(),
+                    flow_after: Vec::new(),
+                    symbol: None,
+                },
+                StepInput {
+                    id: "caller".to_owned(),
+                    path: "src/caller.rs".to_owned(),
+                    start_line: 2,
+                    end_line: 2,
+                    title: "Who reads it".to_owned(),
+                    explanation: "This caller is unchanged but shows the effect.".to_owned(),
+                    flow_after: vec!["value".to_owned()],
+                    symbol: None,
+                },
+            ],
+            goal: None,
+            agent: AgentKind::Other,
+            session_id: None,
+        })
+        .unwrap();
+
+    let walkthrough: Walkthrough =
+        serde_json::from_slice(&fs::read(result.session_path).unwrap()).unwrap();
+    let caller = walkthrough
+        .steps
+        .iter()
+        .find(|step| step.id == "caller")
+        .unwrap();
+    assert_eq!(caller.change_kind, ChangeKind::Context);
+    assert_eq!(walkthrough.kind, WalkthroughKind::Change);
 }
 
 fn initialize_repository(workspace: &Path) {

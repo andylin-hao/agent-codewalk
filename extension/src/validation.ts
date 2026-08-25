@@ -16,6 +16,7 @@ export function parseWalkthrough(value: unknown): Walkthrough {
     object,
     [
       "schemaVersion",
+      "kind",
       "id",
       "workspaceFingerprint",
       "title",
@@ -55,6 +56,7 @@ export function parseWalkthrough(value: unknown): Walkthrough {
   exactKeys(task, ["id", "goal", "startedAt", "completedAt"], "task");
   const result: Walkthrough = {
     schemaVersion: 1,
+    kind: enumeration(object.kind, ["change", "explanation"] as const, "kind"),
     id: string(object.id, "id"),
     workspaceFingerprint: hash(object.workspaceFingerprint, "workspaceFingerprint"),
     title: boundedString(object.title, "title", 200),
@@ -87,7 +89,39 @@ export function parseWalkthrough(value: unknown): Walkthrough {
   if (result.uncoveredHunks.length > 0 && !result.degradedBaseline) {
     fail("uncoveredHunks is only allowed when degradedBaseline is true");
   }
+  if (result.kind === "explanation") {
+    validateExplanation(result);
+  }
   return result;
+}
+
+/**
+ * Enforces what it means for a walkthrough to explain rather than record a change.
+ *
+ * An explanation is published without a baseline and without a diff, so a document that
+ * claims to be one while carrying change data was not produced by this protocol.
+ */
+function validateExplanation(walkthrough: Walkthrough): void {
+  if (walkthrough.changedHunks.length > 0) {
+    fail("an explanation walkthrough must not report changed hunks");
+  }
+  if (walkthrough.uncoveredHunks.length > 0) {
+    fail("an explanation walkthrough must not report uncovered hunks");
+  }
+  if (walkthrough.degradedBaseline) {
+    fail("an explanation walkthrough cannot have a degraded baseline");
+  }
+  for (const step of walkthrough.steps) {
+    if (step.changeKind !== "context") {
+      fail(`an explanation walkthrough may only contain context steps: ${step.id}`);
+    }
+    if (step.previousText !== undefined) {
+      fail(`an explanation walkthrough step cannot record replaced text: ${step.id}`);
+    }
+    if (!step.targetAvailable) {
+      fail(`an explanation walkthrough step must point at code that exists: ${step.id}`);
+    }
+  }
 }
 
 function parseStep(value: unknown, field: string): WalkthroughStep {
@@ -115,7 +149,7 @@ function parseStep(value: unknown, field: string): WalkthroughStep {
     explanation: boundedString(object.explanation, `${field}.explanation`, 10_000),
     changeKind: enumeration(
       object.changeKind,
-      ["add", "modify", "delete", "rename"] as const,
+      ["add", "modify", "delete", "rename", "context"] as const,
       `${field}.changeKind`,
     ) satisfies ChangeKind,
     anchor: parseAnchor(object.anchor, `${field}.anchor`),

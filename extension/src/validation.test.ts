@@ -130,6 +130,38 @@ describe("parseWalkthrough", () => {
     expect(() => parseWalkthrough(document)).toThrow(/steps\[1\]\.anchor\.normalizedHash/u);
   });
 
+  it("accepts an explanation of unchanged code", () => {
+    const document = structuredClone(negative.base);
+    assign(document, ["kind"], "explanation");
+    assign(document, ["changedHunks"], []);
+    assign(document, ["steps", "0", "changeKind"], "context");
+    assign(document, ["steps", "1", "changeKind"], "context");
+
+    const parsed = parseWalkthrough(document);
+    expect(parsed.kind).toBe("explanation");
+    expect(parsed.steps.every((step) => step.changeKind === "context")).toBe(true);
+    expect(validateAgainstSchema(document), JSON.stringify(validateAgainstSchema.errors)).toBe(
+      true,
+    );
+  });
+
+  it("accepts a context step inside a change walkthrough", () => {
+    const document = structuredClone(negative.base);
+    assign(document, ["steps", "1", "changeKind"], "context");
+    expect(parseWalkthrough(document).steps[1]?.changeKind).toBe("context");
+    expect(validateAgainstSchema(document)).toBe(true);
+  });
+
+  it("rejects an explanation whose step points at a deleted file", () => {
+    const document = structuredClone(negative.base);
+    assign(document, ["kind"], "explanation");
+    assign(document, ["changedHunks"], []);
+    assign(document, ["steps", "0", "changeKind"], "context");
+    assign(document, ["steps", "1", "changeKind"], "context");
+    assign(document, ["steps", "0", "targetAvailable"], false);
+    expect(() => parseWalkthrough(document)).toThrow(/must point at code that exists/u);
+  });
+
   it("accepts uncovered hunks on a degraded session", () => {
     const document = structuredClone(negative.base);
     assign(document, ["degradedBaseline"], true);

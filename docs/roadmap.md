@@ -21,6 +21,21 @@ A skill alone cannot highlight code. An extension alone cannot know why a line c
 The companion exists so that change coverage is derived from Git rather than trusted
 from the agent's own report.
 
+## Two kinds of walkthrough
+
+A walkthrough is not only about a change. Since 0.3.0 there are two publication paths,
+sharing one protocol, one player, and one interface:
+
+- **Change** (`begin_task` → `publish_walkthrough`): what a task modified, validated
+  against a recorded baseline so no changed hunk can go unexplained.
+- **Explanation** (`publish_explanation`): a tour of code that was not modified,
+  published when the user asks an agent to analyze, explain, review, or trace something.
+  No baseline, no diff, no coverage validation — but every step must point at code that
+  exists, and the execution-flow order is what carries the explanation.
+
+A change walkthrough may also include `context` steps: unchanged code the reader needs
+in order to follow the change, highlighted more quietly than a diff.
+
 ## Baseline: what v0.1.1 already does
 
 - `begin_task` snapshots Git HEAD, the index, and any pre-existing dirty files.
@@ -149,6 +164,7 @@ Everything above is implemented as of 0.2.0 except the items listed as deferred.
 | P1 test coverage | Done. 212 extension tests at 94.7% statements and 88.5% branches over the whole source tree, 46 companion tests including an end-to-end suite over the real binary, a twenty-case shared negative protocol contract, and coverage gates in CI for both languages. |
 | P2 correctness | Done. Repository-root workspace identity, filesystem watching, `uncoveredHunks` on degraded baselines, cryptographic nonce, normalization round-trip tests. |
 | P3 navigation and interface | Done, except the step tree. |
+| Explanation walkthroughs (0.3.0) | Done. `publish_explanation` publishes a tour of unchanged code for an analysis request, and a change walkthrough may include context steps. |
 | P4 agent surface | Done, except project-scoped installation. |
 | P5 distribution | Publishing and the manual checklist are in place; the demonstration recording is not. |
 

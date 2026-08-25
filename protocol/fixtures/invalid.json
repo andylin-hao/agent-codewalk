@@ -2,6 +2,7 @@
   "comment": "Shared negative contract. Every case mutates base and must be rejected by the TypeScript validator with a message containing expect. layer=deserialization is additionally rejected by Rust deserialization and by the JSON Schema; layer=schema is rejected by the JSON Schema but reaches Rust at publish time instead of read time; layer=semantics satisfies the JSON Schema and is enforced only by the validator.",
   "base": {
     "schemaVersion": 1,
+    "kind": "change",
     "id": "session",
     "workspaceFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "title": "Add readiness helper",
@@ -251,6 +252,65 @@
       "expect": "must not precede startLine",
       "set": {
         "changedHunks.0.startLine": 9
+      }
+    },
+    {
+      "name": "unknown-walkthrough-kind",
+      "layer": "deserialization",
+      "expect": "unsupported value",
+      "set": {
+        "kind": "tour"
+      }
+    },
+    {
+      "name": "missing-walkthrough-kind",
+      "layer": "deserialization",
+      "expect": "kind has an unsupported value",
+      "delete": [
+        "kind"
+      ]
+    },
+    {
+      "name": "explanation-that-reports-changed-hunks",
+      "layer": "semantics",
+      "expect": "explanation walkthrough must not report changed hunks",
+      "set": {
+        "kind": "explanation",
+        "steps.0.changeKind": "context",
+        "steps.1.changeKind": "context"
+      }
+    },
+    {
+      "name": "explanation-with-a-change-kind-step",
+      "layer": "semantics",
+      "expect": "explanation walkthrough may only contain context steps",
+      "set": {
+        "kind": "explanation",
+        "changedHunks": []
+      }
+    },
+    {
+      "name": "explanation-with-a-degraded-baseline",
+      "layer": "semantics",
+      "expect": "explanation walkthrough cannot have a degraded baseline",
+      "set": {
+        "kind": "explanation",
+        "changedHunks": [],
+        "degradedBaseline": true,
+        "steps.0.changeKind": "context",
+        "steps.1.changeKind": "context"
+      }
+    },
+    {
+      "name": "explanation-step-with-previous-text",
+      "layer": "semantics",
+      "expect": "explanation walkthrough step cannot record replaced text",
+      "set": {
+        "kind": "explanation",
+        "changedHunks": [],
+        "steps.0.changeKind": "context",
+        "steps.1.changeKind": "context",
+        "steps.0.previousText": "let ready = false;"
       }
     }
   ]

@@ -44,6 +44,7 @@ beforeEach(async () => {
     modify: createDecoration(),
     delete: createDecoration(),
     rename: createDecoration(),
+    context: createDecoration(),
   };
   contextDecoration = createDecoration();
   diffs = new StepDiffProvider();
@@ -298,6 +299,64 @@ describe("WalkthroughPlayer", () => {
     expect(state.groups.map((group) => group.path)).toEqual(["src/lib.rs", "src/main.rs"]);
     expect(state.steps.filter((step) => step.active).map((step) => step.id)).toEqual(["ready"]);
     expect(state.steps[1]?.hasDiff).toBe(true);
+  });
+
+  it("plays an explanation of code that never changed", async () => {
+    const walkthrough = buildWalkthrough(
+      workspace.workspaceRoot,
+      [
+        buildStep({
+          id: "ready",
+          path: "src/lib.rs",
+          startLine: 1,
+          endLine: 3,
+          text: "pub fn ready() -> bool {\n    true\n}",
+          title: "Where readiness is decided",
+          changeKind: "context",
+        }),
+      ],
+      { kind: "explanation", title: "How readiness is decided" },
+    );
+    await writeSession(workspace.dataDirectory, workspace.workspaceRoot, walkthrough);
+    await player.openLatest();
+
+    const state = player.getState();
+    expect(state.kind).toBe("explanation");
+    expect(state.sessions[0]?.kind).toBe("explanation");
+    expect(state.canShowDiff).toBe(false);
+    expect(state.degradedBaseline).toBe(false);
+    expect(state.uncoveredHunks).toEqual([]);
+    expect(lastRanges(editorFor("src/lib.rs"), decorations.context)).toEqual([[0, 2]]);
+  });
+
+  it("has nothing to compare in an explanation", async () => {
+    const walkthrough = buildWalkthrough(
+      workspace.workspaceRoot,
+      [
+        buildStep({
+          id: "ready",
+          path: "src/lib.rs",
+          startLine: 1,
+          endLine: 3,
+          text: "pub fn ready() -> bool {\n    true\n}",
+          changeKind: "context",
+        }),
+      ],
+      { kind: "explanation" },
+    );
+    await writeSession(workspace.dataDirectory, workspace.workspaceRoot, walkthrough);
+    await player.openLatest();
+    await player.showDiff();
+
+    expect(player.getState().error).toMatch(/nothing to compare/u);
+    expect(mockState.executedCommands.some((entry) => entry.command === "vscode.diff")).toBe(false);
+  });
+
+  it("reports a change walkthrough as such", async () => {
+    await publishTwoStepSession();
+    await player.openLatest();
+    expect(player.getState().kind).toBe("change");
+    expect(player.getState().sessions[0]?.kind).toBe("change");
   });
 
   it("surfaces degraded baselines and unexplained changes", async () => {

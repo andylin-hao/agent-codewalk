@@ -20,7 +20,7 @@ fn main() -> ExitCode {
         .any(|argument| argument == "--prompt-reminder")
     {
         println!(
-            "For coding tasks that will mutate files, use the agent-codewalk skill: call begin_task immediately before the first mutation, then publish_walkthrough after verification. Do not start a baseline for read-only work."
+            "Use the agent-codewalk skill. If this task will change files, call begin_task immediately before the first mutation and publish_walkthrough after verification. If it explains code without changing it -- analyze, explain, review, trace, walk through -- call publish_explanation instead, with no begin_task."
         );
         return ExitCode::SUCCESS;
     }

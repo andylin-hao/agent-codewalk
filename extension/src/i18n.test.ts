@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { format, messagesFor } from "./i18n.js";
+import type { ChangeKind } from "./types.js";
 
 describe("messagesFor", () => {
   it.each([["zh-cn"], ["zh-CN"], ["zh-tw"], ["zh"]])("uses Chinese for %s", (language) => {
@@ -30,10 +31,25 @@ describe("messagesFor", () => {
     expect(messagesFor("zh-cn").emptySteps).toHaveLength(messagesFor("en").emptySteps.length);
   });
 
+  it("labels every change kind in both languages", () => {
+    const kinds: ChangeKind[] = ["add", "modify", "delete", "rename", "context"];
+    for (const language of ["en", "zh-cn"]) {
+      const table = messagesFor(language).kinds;
+      expect(Object.keys(table).sort()).toEqual([...kinds].sort());
+      for (const kind of kinds) {
+        expect(table[kind], `${language} is missing ${kind}`).toBeTruthy();
+      }
+    }
+  });
+
   it("keeps every placeholder a template declares", () => {
     const english = messagesFor("en");
     const chinese = messagesFor("zh-cn");
-    for (const key of ["stepCounter", "publishedNotice"] as const) {
+    for (const key of [
+      "stepCounter",
+      "publishedNotice",
+      "explanationPublishedNotice",
+    ] as const) {
       expect(placeholders(chinese[key]), key).toEqual(placeholders(english[key]));
     }
   });

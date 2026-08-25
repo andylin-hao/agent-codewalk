@@ -256,6 +256,23 @@ describe("html", () => {
     expect(() => new Script(script ?? "")).not.toThrow();
   });
 
+  it("carries a pill that marks an explanation", () => {
+    const page = html();
+    expect(page).toContain('id="kind-pill"');
+    expect(page).toContain("state.kind === 'explanation'");
+    expect(page).toContain("MESSAGES.explanationLabel");
+  });
+
+  it("labels a step badge from the message table rather than the raw kind", () => {
+    const page = html();
+    expect(page).toContain("MESSAGES.kinds[state.step.changeKind]");
+    expect(page).toContain('"context":"context"');
+  });
+
+  it("styles a context highlight apart from a diff", () => {
+    expect(html()).toContain(".badge.context");
+  });
+
   it("keeps the message table addressable from the client script", () => {
     const page = html();
     expect(page).toContain("const MESSAGES = {");

@@ -1,5 +1,16 @@
 export type AgentKind = "codex" | "claude-code" | "opencode" | "other";
-export type ChangeKind = "add" | "modify" | "delete" | "rename";
+
+/**
+ * What a walkthrough explains.
+ *
+ * - `change`: what a task modified, validated against a recorded baseline.
+ * - `explanation`: a tour of code that was not modified, published for an analysis
+ *   request.
+ */
+export type WalkthroughKind = "change" | "explanation";
+
+/** What a step's highlight means. `context` marks a block that did not change. */
+export type ChangeKind = "add" | "modify" | "delete" | "rename" | "context";
 export type ExplanationMode = "file" | "flow";
 
 export interface CodeAnchor {
@@ -37,6 +48,7 @@ export interface ExcludedChange {
 
 export interface Walkthrough {
   readonly schemaVersion: 1;
+  readonly kind: WalkthroughKind;
   readonly id: string;
   readonly workspaceFingerprint: string;
   readonly title: string;
@@ -67,6 +79,7 @@ export interface ResolvedAnchor {
 /** One session as offered in the session picker. */
 export interface SessionSummary {
   readonly id: string;
+  readonly kind: WalkthroughKind;
   readonly title: string;
   readonly createdAt: string;
   readonly stepCount: number;
@@ -94,6 +107,7 @@ export interface StepGroup {
 
 export interface ViewState {
   readonly sessions: readonly SessionSummary[];
+  readonly kind: WalkthroughKind;
   readonly activeSessionId?: string;
   readonly title?: string;
   readonly summary?: string;

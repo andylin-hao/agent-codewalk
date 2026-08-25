@@ -1,3 +1,5 @@
+import type { ChangeKind } from "./types.js";
+
 // User-visible strings for the walkthrough view.
 //
 // VS Code localizes the manifest through package.nls files, but a webview renders its
@@ -29,8 +31,13 @@ export interface Messages {
   readonly uncoveredNotice: string;
   readonly excludedNotice: string;
   readonly publishedNotice: string;
+  readonly explanationPublishedNotice: string;
   readonly openWalkthrough: string;
   readonly noWalkthrough: string;
+  readonly explanationLabel: string;
+  readonly changeLabel: string;
+  /** Badge text for a step, by what its highlight means. */
+  readonly kinds: Readonly<Record<ChangeKind, string>>;
 }
 
 const english: Messages = {
@@ -66,8 +73,18 @@ const english: Messages = {
   uncoveredNotice: "Changes with no explanation:",
   excludedNotice: "Changed but not shown as code:",
   publishedNotice: "Agent CodeWalk: “{0}” is ready with {1} step(s).",
+  explanationPublishedNotice: "Agent CodeWalk: an explanation of “{0}” is ready with {1} step(s).",
   openWalkthrough: "Open walkthrough",
   noWalkthrough: "There is no active Agent CodeWalk walkthrough.",
+  explanationLabel: "Explanation",
+  changeLabel: "Change",
+  kinds: {
+    add: "added",
+    modify: "modified",
+    delete: "deleted",
+    rename: "renamed",
+    context: "context",
+  },
 };
 
 const simplifiedChinese: Messages = {
@@ -101,8 +118,18 @@ const simplifiedChinese: Messages = {
   uncoveredNotice: "没有讲解的修改：",
   excludedNotice: "有修改但不作为代码展示：",
   publishedNotice: "Agent CodeWalk：“{0}”已就绪，共 {1} 步。",
+  explanationPublishedNotice: "Agent CodeWalk：关于“{0}”的讲解已就绪，共 {1} 步。",
   openWalkthrough: "打开讲解",
   noWalkthrough: "当前没有正在播放的 Agent CodeWalk 讲解。",
+  explanationLabel: "代码讲解",
+  changeLabel: "代码修改",
+  kinds: {
+    add: "新增",
+    modify: "修改",
+    delete: "删除",
+    rename: "重命名",
+    context: "上下文",
+  },
 };
 
 /**

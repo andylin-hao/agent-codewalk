@@ -72,6 +72,24 @@ pub struct PublishWalkthroughRequest {
     pub session_id: Option<String>,
 }
 
+/// Arguments accepted by the `publish_explanation` MCP tool.
+///
+/// An explanation has no baseline and no diff, so it needs neither a task nor coverage
+/// validation. Only the steps and the question they answer are supplied.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct PublishExplanationRequest {
+    pub title: String,
+    pub summary: String,
+    pub topic: String,
+    pub steps: Vec<StepInput>,
+    #[serde(default)]
+    pub agent: AgentKind,
+    #[serde(default)]
+    pub session_id: Option<String>,
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PublishWalkthroughResult {
@@ -121,6 +139,7 @@ pub(crate) struct BaselineManifest {
 #[serde(deny_unknown_fields)]
 pub struct Walkthrough {
     pub schema_version: u32,
+    pub kind: WalkthroughKind,
     pub id: String,
     pub workspace_fingerprint: String,
     pub title: String,
@@ -187,6 +206,17 @@ pub struct CodeAnchor {
     pub symbol: Option<String>,
 }
 
+/// What a walkthrough explains.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum WalkthroughKind {
+    /// Explains what a task modified, validated against the recorded baseline.
+    #[default]
+    Change,
+    /// A tour of code that was not modified, published for an analysis request.
+    Explanation,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum ChangeKind {
@@ -194,6 +224,8 @@ pub enum ChangeKind {
     Modify,
     Delete,
     Rename,
+    /// The block did not change; it is shown because the walkthrough needs it.
+    Context,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
