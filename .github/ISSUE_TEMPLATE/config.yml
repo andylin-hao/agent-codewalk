@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/agent-codewalk/agent-codewalk/security/advisories/new
+    about: Report vulnerabilities privately; do not open a public issue.
+  - name: Troubleshooting guide
+    url: https://github.com/agent-codewalk/agent-codewalk/blob/main/docs/troubleshooting.md
+    about: Resolve common installation, discovery, stale-session, and remote-host problems.

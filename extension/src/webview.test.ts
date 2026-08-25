@@ -147,7 +147,7 @@ describe("WalkthroughViewProvider", () => {
 
     provider.resolveWebviewView(fake.view);
 
-    expect(fake.html).toContain("Agent CodeWalk plays back");
+    expect(fake.html).toContain("Agent CodeWalk turns an agent's change or explanation");
     expect(fake.options).toMatchObject({ enableScripts: true });
     expect(fake.posted).toHaveLength(1);
     provider.dispose();

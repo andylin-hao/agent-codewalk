@@ -1,0 +1,46 @@
+name: Feature request
+description: Propose an improvement grounded in a user problem.
+title: "feature: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the problem before the implementation. Cross-component, protocol, network, telemetry, model API, or project-scoped installation ideas should explain privacy, security, ownership, compatibility, and migration.
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+      description: Who encounters this, in what workflow, and what is difficult today?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe what the user should be able to accomplish, without prescribing code structure.
+    validations:
+      required: true
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Current workaround
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Compatibility and safety
+      description: Note protocol, local data, user configuration, privacy, security, accessibility, localization, and platform effects.
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Examples or evidence
+      description: Add a concrete task, screenshot, recording, or comparable workflow when useful.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and the roadmap.
+          required: true
+        - label: I described a user problem, not only a preferred implementation.
+          required: true

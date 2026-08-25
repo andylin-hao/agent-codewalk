@@ -6,6 +6,10 @@
   "publisher": "agent-codewalk",
   "license": "MIT",
   "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#080d1a",
+    "theme": "dark"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/agent-codewalk/agent-codewalk.git"
@@ -304,10 +308,11 @@
   "scripts": {
     "build": "node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
-    "check": "tsc --noEmit && eslint src",
+    "check": "tsc --noEmit && eslint src && node scripts/generate-icon.mjs --check",
     "test": "vitest run --coverage && corepack pnpm build && node scripts/smoke-load-bundle.mjs",
     "test:extension": "corepack pnpm build && node scripts/build-extension-test.mjs && node scripts/run-extension-tests.mjs",
     "icon": "node scripts/generate-icon.mjs",
+    "icon:check": "node scripts/generate-icon.mjs --check",
     "package": "corepack pnpm build && node scripts/smoke-load-bundle.mjs && node scripts/stage-companion.mjs && corepack pnpm exec vsce package --no-dependencies"
   },
   "dependencies": {

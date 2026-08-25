@@ -46,11 +46,11 @@ export interface Messages {
 const english: Messages = {
   emptyTitle: "No walkthrough yet",
   emptyLead:
-    "Agent CodeWalk plays back the changes an agent just made, one highlighted block at a time.",
+    "Agent CodeWalk turns an agent's change or explanation into a guided tour, one highlighted block at a time.",
   emptySteps: [
     "Run <strong>Setup Agent Integrations</strong> once.",
     "Restart your agent session so it loads the tools.",
-    "Ask Codex, Claude Code, or OpenCode to change code as usual.",
+    "Ask Codex, Claude Code, or OpenCode to change or explain code.",
     "Come back here when it reports that it is done.",
   ],
   setupPrimary: "Set up agent integrations",
@@ -96,11 +96,11 @@ const english: Messages = {
 
 const simplifiedChinese: Messages = {
   emptyTitle: "暂无讲解",
-  emptyLead: "Agent CodeWalk 会回放 Agent 刚刚完成的修改，每次高亮一个代码块。",
+  emptyLead: "Agent CodeWalk 会把 Agent 完成的修改或讲解变成代码导览，每次高亮一个代码块。",
   emptySteps: [
     "运行一次 <strong>Setup Agent Integrations</strong>。",
     "重启 Agent 会话，让它加载这些工具。",
-    "像平常一样让 Codex、Claude Code 或 OpenCode 修改代码。",
+    "让 Codex、Claude Code 或 OpenCode 修改或讲解代码。",
     "它报告完成后回到这里。",
   ],
   setupPrimary: "配置 Agent 集成",

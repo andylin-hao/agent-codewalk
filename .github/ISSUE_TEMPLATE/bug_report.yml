@@ -1,0 +1,74 @@
+name: Bug report
+description: Report a reproducible Agent CodeWalk problem.
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Agent CodeWalk. For setup and playback problems, try the [troubleshooting guide](https://github.com/agent-codewalk/agent-codewalk/blob/main/docs/troubleshooting.md) first. Do not report vulnerabilities here; use the private security form linked below.
+  - type: input
+    id: version
+    attributes:
+      label: Agent CodeWalk version
+      placeholder: 0.7.3
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Installation source
+      options:
+        - Visual Studio Marketplace
+        - Open VSX
+        - GitHub release VSIX
+        - Local development build
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include editor/version, operating system/architecture, local or remote host, and agent/version.
+      placeholder: VS Code 1.xx on Linux x64, local workspace, Codex x.y
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: Give the smallest ordered steps that reliably show the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include the exact visible error or symptom.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized diagnostics
+      description: Paste relevant Agent CodeWalk output after removing tokens, usernames, private paths, repository names, source, and agent conversation content.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I restarted the complete agent session after setup or update.
+          required: true
+        - label: I searched existing issues for this symptom.
+          required: true
+        - label: This report contains no secrets or private source.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true

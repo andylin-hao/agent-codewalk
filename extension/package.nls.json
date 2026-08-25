@@ -1,9 +1,9 @@
 {
   "extension.displayName": "Agent CodeWalk",
-  "extension.description": "Step through code changes made by Codex, Claude Code, and OpenCode.",
+  "extension.description": "Follow guided, local walkthroughs of code changed or explained by Codex, Claude Code, and OpenCode.",
   "view.container.title": "Agent CodeWalk",
   "view.walkthrough.name": "Walkthrough",
-  "view.welcome": "Agent CodeWalk plays back the changes an agent just made.\n[Set up agent integrations](command:agentCodeWalk.setup)",
+  "view.welcome": "Read code an agent changed or explained, one highlighted block at a time.\n[Set up agent integrations](command:agentCodeWalk.setup)",
   "command.category": "Agent CodeWalk",
   "command.setup.title": "Setup Agent Integrations",
   "command.openLatest.title": "Open Latest Walkthrough",

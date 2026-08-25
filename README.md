@@ -1,90 +1,266 @@
-# Agent CodeWalk
+<p align="center">
+  <img src="extension/media/icon.png" width="112" alt="Agent CodeWalk logo">
+</p>
 
-Agent CodeWalk 让 Codex、Claude Code 和 OpenCode 在完成代码修改后，生成一份可以在 VS Code 或 Cursor 中逐步播放的讲解。每一步会打开对应文件、高亮代码块，并说明修改内容、原因和行为影响。讲解可以按文件顺序或代码执行流播放。
+<h1 align="center">Agent CodeWalk</h1>
 
-## 使用方式
+<p align="center">
+  Turn an AI agent's work into a guided tour of the code—one meaningful block at a time.
+</p>
 
-1. 从 VS Code Marketplace、Open VSX 或 release 中安装 `Agent CodeWalk` 扩展。
-2. 运行 `Agent CodeWalk: Setup Agent Integrations`。确认后，扩展会安装本地 MCP companion，并为检测到的 Agent 配置 MCP 和 portable skill；Codex/Claude Code 还会获得任务生命周期提醒。Codex 会要求通过 `/hooks` 检查并信任新安装的用户级 Stop hook。
-3. 重启已有 Agent session，然后正常使用 Agent：
-   - **让它修改代码** —— 完成后会得到一份讲解本次修改的 walkthrough。
-   - **让它分析或讲解代码**（"这个模块怎么工作""跟一遍请求路径""解释一下鉴权流程"）—— 即使一个文件都没改，也会得到一份可以逐步跳转的讲解。
-4. Agent 发布讲解时会弹出通知；也可以打开 Activity Bar 中的 Agent CodeWalk，或运行 `Agent CodeWalk: Open Latest Walkthrough`。
-5. 逐步查看：
+<p align="center">
+  <a href="README.md">English</a> ·
+  <a href="README.zh-CN.md">简体中文</a>
+</p>
 
-| 操作 | 快捷键 | 命令 |
-| --- | --- | --- |
-| 下一步 | `Alt+]` | `Agent CodeWalk: Next Step` |
-| 上一步 | `Alt+[` | `Agent CodeWalk: Previous Step` |
-| 在流程图与文件视图之间切换 | `Alt+\` | `Agent CodeWalk: Switch Between Graph and File Views` |
-| 跳转到任意步骤 | `Ctrl+Alt+W`（macOS `Cmd+Alt+W`） | `Agent CodeWalk: Jump to Step` |
-| 对比该步骤修改前后 | — | `Agent CodeWalk: Compare Current Step With Before` |
+<p align="center">
+  <a href="https://marketplace.visualstudio.com/items?itemName=agent-codewalk.agent-codewalk"><img alt="Visual Studio Marketplace version" src="https://img.shields.io/visual-studio-marketplace/v/agent-codewalk.agent-codewalk?style=flat-square&label=VS%20Marketplace"></a>
+  <a href="https://open-vsx.org/extension/agent-codewalk/agent-codewalk"><img alt="Open VSX version" src="https://img.shields.io/open-vsx/v/agent-codewalk/agent-codewalk?style=flat-square&label=Open%20VSX"></a>
+  <a href="https://github.com/agent-codewalk/agent-codewalk/releases"><img alt="Latest GitHub release" src="https://img.shields.io/github/v/release/agent-codewalk/agent-codewalk?style=flat-square"></a>
+  <a href="https://github.com/agent-codewalk/agent-codewalk/actions/workflows/ci.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/agent-codewalk/agent-codewalk/ci.yml?branch=main&style=flat-square&label=build"></a>
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-5c6ac4?style=flat-square"></a>
+</p>
 
-侧边栏顶部是进度和当前步骤的说明，整体说明收在下方的“整体说明”里，点击展开；再往下是步骤列表。默认是流程图：讲解先给出几个高层步骤，每个步骤可以展开，读到下一层的细节；每个步骤各占一行，左侧的连线把它连到依赖它的步骤，点击任意一行即可跳转。也可以切换成按文件分组，一次看到全部步骤。首次展开的层数由 `agentCodeWalk.initialDepth` 控制，默认两层。步骤块中真正发生改动的那几行会按 add / modify / delete 着色，其余部分保持中性，因此不必打开对比也能看清改动。每个被讲解的代码块上方还会出现 CodeLens，可以直接跳转或查看 diff。状态栏显示当前进度，点击可搜索跳转。界面提供英文和简体中文。
+![Agent CodeWalk product preview](extension/media/hero.png)
 
-用户无需配置额外模型或 API key。说明由刚完成修改的 Agent 生成，代码、baseline 和 walkthrough 只写入本机用户数据目录。
+Coding agents are good at making changes. Understanding those changes can still mean
+chasing file names through a chat transcript, reconstructing execution order, and
+guessing which lines an explanation refers to. Agent CodeWalk puts that missing layer
+inside your editor.
 
-## 两种 walkthrough
+After Codex, Claude Code, or OpenCode finishes, Agent CodeWalk opens the relevant file,
+highlights the exact block, and explains what changed, why it changed, and what depends
+on it. Ask a question instead of requesting an edit and it can publish the same kind of
+navigable tour through existing code—without changing a file.
 
-| | 修改讲解（change） | 代码讲解（explanation） |
-| --- | --- | --- |
-| 触发 | Agent 修改了文件 | 要求分析 / 讲解 / review / 跟踪现有代码 |
-| 工具 | `begin_task` → `publish_walkthrough` | 直接 `publish_explanation` |
-| baseline | 需要，用于计算 diff | 不需要 |
-| 覆盖校验 | 每个变更 hunk 都必须被某一步覆盖 | 不适用 |
-| 高亮 | 按 add / modify / delete / rename 着色 | 中性色（context） |
-| diff | 可对比修改前后 | 无（代码没有变化） |
+No second model, cloud service, or API key is required. The agent you already use writes
+the walkthrough, and the extension keeps the baseline, explanations, and session data on
+your machine.
 
-修改讲解中的某一步也可以指向本次没有改动、但读者需要看到的代码，它会被记为 `context` 并以更安静的方式高亮。
+## Why Agent CodeWalk?
 
-Agent 在给出讲解的同时仍然会在对话里正常回答；walkthrough 是让你对照代码阅读，而不是替代回答。
+- **Read the story, not a file list.** Follow execution flow as a dependency graph, or
+  switch to a complete view grouped by file.
+- **Stay anchored in real code.** Each step opens the source and highlights the block it
+  describes. CodeLens and the status bar keep navigation close at hand.
+- **See what actually changed.** Added, modified, deleted, renamed, and contextual blocks
+  are visually distinct, with a focused before/after comparison when baseline text is
+  available.
+- **Trust the coverage.** For a normal change walkthrough, the local companion refuses to
+  publish until every text diff hunk is covered by at least one step.
+- **Keep control of your machine.** Setup previews every user-level file it will touch,
+  creates backups, rolls back failed installs, and never overwrites integrations it does
+  not own.
+- **Use the agent and editor you prefer.** Codex, Claude Code, and OpenCode are supported
+  in desktop VS Code, Cursor, VSCodium, and compatible desktop builds.
 
-## 工作原理
+## Install
 
-Agent 在首次文件 mutation 前调用 `begin_task`。Companion 记录 Git HEAD、当前 index，以及任务开始前已有 dirty/untracked 文件的必要快照。任务完成后，Agent 调用 `publish_walkthrough`；companion 计算本轮变化、验证每个文本 diff hunk 都有讲解步骤、补全稳定 anchor，然后原子发布 session。编辑器扩展读取 session，验证协议和 workspace fingerprint 后才允许打开文件。
+Marketplace installation is recommended because it provides the simplest update path.
 
-Companion 以 Git 仓库根目录作为 workspace 标识，因此 Agent 在子目录中启动时，发布的讲解仍然能被打开了仓库（或其子目录）的编辑器找到。可以用 `AGENT_CODEWALK_WORKSPACE` 覆盖。
+### Visual Studio Marketplace
 
-Agent 启动时会拿到当时安装的 companion，并在整个会话中一直用它。因此升级扩展不会影响已经在运行的 Agent——它发布的讲解仍然来自旧 companion，看起来就像新功能没生效。每个 session 都会记录发布它的 companion 版本，低于当前扩展版本时侧边栏会直接提示重启 Agent 会话。
-
-如果 Agent 错过了 `begin_task`，仍可降级发布。此时 companion 从当前 Git 状态尽力推导变化，session 会标记 `degradedBaseline`；未被任何步骤覆盖的 hunk 会记录在 `uncoveredHunks` 中并在 UI 中逐条列出，而不是被静默忽略。完整 baseline 下，未覆盖的 hunk 仍然直接拒绝发布。
-
-如果代码在发布后移动，扩展会在同一文件中寻找唯一的代码 hash；没有唯一匹配时会显示 stale，而不会高亮可能错误的位置。
-
-## 隐私和安全
-
-- 默认不发起网络请求，也不调用模型 API。
-- MCP companion 只通过 stdio 与本地 Agent 通信，不监听网络端口。
-- walkthrough 保存路径、说明、行号和代码块 hash，以及每个步骤所替换的那几行原始文本（用于 before/after 对比，单步上限 4000 字符）。不保存整份源码。
-- 路径必须位于发布该 session 的 workspace 根目录内；绝对路径、`..` traversal 和经由 symlink 的逃逸都会被拒绝。
-- 一键安装在写用户配置前显示目标路径并创建备份；安装失败会自动回滚本轮文件变更，遇到非本工具拥有的同名 skill 或 MCP 条目时拒绝覆盖。
-- 卸载只删除 ownership manifest 标记的 skill/adapter，以及 command 仍指向已安装 companion 的配置项。walkthrough session 默认保留。
-- `Agent CodeWalk: Diagnose Installation` 会直接询问各个 Agent 实际加载了哪些 MCP server，而不只是检查配置文件是否存在。
-
-## 当前限制
-
-- v1 面向桌面 VS Code/Cursor、Remote SSH 和 WSL；浏览器版无法启动本地 companion。
-- 二进制、生成文件、Git submodule、超过 1 MiB 的文件和非 UTF-8 文件不会进入文本 diff 分析，但会在 `excludedChanges` 中列出原因。
-- 非 Git workspace 可以降级发布，但 UI 会提示 baseline 范围可能不完整。
-- 整个文件被删除时没有当前代码可高亮，步骤会保留说明并显示 target unavailable。
-- 纯新增的代码块没有"修改前"可对比，该步骤不会提供 diff；代码讲解同理。
-- 代码讲解的每一步都必须指向当前存在的代码，否则发布会被拒绝。
-- 集成只写用户级配置；project 级安装尚未提供，见 `docs/roadmap.md`。
-
-## 开发
-
-要求 Node.js 20+、pnpm 10、Rust 1.85+ 和 Git。
+Install [Agent CodeWalk from the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=agent-codewalk.agent-codewalk),
+search for **Agent CodeWalk** in the Extensions view, or use the command line:
 
 ```bash
-corepack pnpm install
-corepack pnpm check
-corepack pnpm test
-cargo fmt --all -- --check
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
-corepack pnpm --filter agent-codewalk test:extension   # 需要显示环境（CI 使用 xvfb）
-corepack pnpm --filter agent-codewalk package
-node scripts/verify-agent-install.mjs                  # 确认各 Agent 真的加载了 companion
+code --install-extension agent-codewalk.agent-codewalk
 ```
 
-协议定义位于 `protocol/walkthrough-v1.schema.json`，正反例 fixture 位于 `protocol/fixtures/`，由 Rust 与 TypeScript 两侧共同断言。Rust companion 在 `crates/agent-codewalk-mcp`，编辑器扩展、portable skill 和本地化文案在 `extension`。到 v1.0 的计划见 `docs/roadmap.md`。
+Cursor users can install the same listing from the Extensions view or run:
+
+```bash
+cursor --install-extension agent-codewalk.agent-codewalk
+```
+
+### Open VSX Registry
+
+For VSCodium and editors backed by Open VSX, install
+[Agent CodeWalk from Open VSX](https://open-vsx.org/extension/agent-codewalk/agent-codewalk)
+or search for **Agent CodeWalk** in the editor's Extensions view.
+
+```bash
+codium --install-extension agent-codewalk.agent-codewalk
+```
+
+### GitHub Releases
+
+Every tagged release also publishes platform-specific VSIX files and a `SHA256SUMS` file
+on [GitHub Releases](https://github.com/agent-codewalk/agent-codewalk/releases). Download
+the package matching the machine that runs the extension host:
+
+| Platform | Release asset |
+| --- | --- |
+| Linux x64, including most Remote SSH hosts | `agent-codewalk-linux-x64.vsix` |
+| Windows x64 | `agent-codewalk-win32-x64.vsix` |
+| macOS Intel | `agent-codewalk-darwin-x64.vsix` |
+| macOS Apple silicon | `agent-codewalk-darwin-arm64.vsix` |
+
+Install the downloaded file from **Extensions: Install from VSIX...** or from a terminal:
+
+```bash
+code --install-extension ./agent-codewalk-linux-x64.vsix
+```
+
+VSIX installs do not follow the normal Marketplace auto-update path. Use a store listing
+unless you specifically need an offline or pinned installation.
+
+## Set up your agent
+
+Installing the editor extension is only the first half. The one-time setup command adds
+the bundled local MCP companion and portable skill to the agents already installed on
+your machine.
+
+1. Open the Command Palette and run **Agent CodeWalk: Setup Agent Integrations**.
+2. Review the confirmation. It names the companion destination and every user-level
+   configuration, skill, or lifecycle-hook file that may change.
+3. Choose **Install**. Each updated configuration is backed up, and a failed agent setup
+   is rolled back without undoing successful integrations for other agents.
+4. Restart any running Codex, Claude Code, or OpenCode session. An existing session keeps
+   the companion process it started with and cannot see a newly installed version.
+5. Run **Agent CodeWalk: Diagnose Installation** if you want to confirm that each agent
+   actually lists `agent-codewalk`, rather than merely checking that a config file exists.
+
+Setup only configures agents it detects. Install your preferred agent first, then rerun
+the setup command whenever you add another one.
+
+## Use it
+
+Work with your agent normally; you do not need a special prompt.
+
+### Walk through a change
+
+Ask the agent to implement, fix, refactor, or document something. Immediately before its
+first file edit, the Agent CodeWalk skill records a lightweight baseline. After the agent
+verifies its work, it publishes a walkthrough whose steps collectively cover every text
+change.
+
+Example prompts:
+
+```text
+Add retry handling to the upload path and test the failure cases.
+Refactor the authentication middleware so the request flow is easier to follow.
+Update the CLI help and the user documentation together.
+```
+
+### Walk through existing code
+
+Ask the agent to analyze, explain, review, or trace code. It publishes an explanation
+walkthrough directly—no baseline or file edit is needed.
+
+```text
+Explain how a published walkthrough reaches the sidebar.
+Trace the integration setup from the command to the config files it owns.
+Review the stale-anchor handling and show me where it fails safely.
+```
+
+Questions that do not point at code, such as general configuration advice, stay in the
+chat and do not create an unnecessary walkthrough.
+
+## Read a walkthrough
+
+Accept the publication notification, select the Agent CodeWalk icon in the Activity Bar,
+or run **Agent CodeWalk: Open Latest Walkthrough**.
+
+| Action | Shortcut | Command |
+| --- | --- | --- |
+| Next visible step | `Alt+]` | **Agent CodeWalk: Next Step** |
+| Previous visible step | `Alt+[` | **Agent CodeWalk: Previous Step** |
+| Switch between graph and file views | `Alt+\` | **Agent CodeWalk: Switch Between Graph and File Views** |
+| Jump to any step | `Ctrl+Alt+W` (`Cmd+Alt+W` on macOS) | **Agent CodeWalk: Jump to Step** |
+| Compare with the replaced code | — | **Agent CodeWalk: Compare Current Step With Before** |
+
+The graph starts with a small set of high-level steps. Expand a step to reveal its
+details; dependency lanes connect it to the steps that rely on it. The file view shows
+the same walkthrough grouped by source file. Selecting a step from the graph, file list,
+CodeLens, status bar, or search always opens the same anchored block in the editor.
+
+The interface follows the editor language and currently includes English and Simplified
+Chinese.
+
+## Change and explanation walkthroughs
+
+| | Change | Explanation |
+| --- | --- | --- |
+| Best for | Work that modified files | Analysis, review, and code tours |
+| Publication path | `begin_task` → `publish_walkthrough` | `publish_explanation` |
+| Git baseline | Required for complete coverage | Not used |
+| Validation | Every text diff hunk must be explained | Every step must point at current code |
+| Highlight | Add, modify, delete, rename, or context | Neutral context |
+| Before/after diff | Available when text was replaced | Not applicable |
+
+A change walkthrough can include unchanged context when the reader needs to see a caller,
+contract, or dependency to understand the edit. Those steps use a quieter neutral
+highlight so they are never mistaken for changes.
+
+## Local-first by design
+
+Agent CodeWalk has no telemetry, makes no network requests, and does not call a model API.
+The only network activity in the normal lifecycle comes from your editor installing or
+updating the extension through the distribution channel you chose.
+
+The Rust companion communicates with the agent over standard input/output and never
+opens a listening port. Sessions store paths, explanations, line ranges, code hashes,
+and up to 4,000 characters of replaced text per step for comparison; they do not copy
+entire source files. Workspace traversal, absolute paths, and symlink escapes are rejected
+at publication boundaries.
+
+See [Security](SECURITY.md) for the threat model and reporting process, and
+[Architecture](docs/architecture.md) for the full data flow.
+
+## Settings
+
+Most users do not need to change these values.
+
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| `agentCodeWalk.initialDepth` | `2` | Number of nested levels expanded when a walkthrough opens |
+| `agentCodeWalk.notifyOnPublish` | `true` | Show a notification when a new walkthrough arrives |
+| `agentCodeWalk.refreshInterval` | `4000` | Fallback polling interval in milliseconds when file watching is unavailable |
+| `agentCodeWalk.storagePath` | Platform data directory | Override where local sessions and the installed companion are stored |
+| `agentCodeWalk.companionPath` | Bundled binary | Use a locally built companion during development or diagnosis |
+
+`AGENT_CODEWALK_HOME` overrides the data directory for both the extension and companion.
+`AGENT_CODEWALK_WORKSPACE` overrides the workspace root used by the companion.
+
+## Compatibility and current limits
+
+- Desktop VS Code 1.96 or newer is required. Cursor, VSCodium, Remote SSH, and WSL are
+  supported when they provide a compatible desktop extension host.
+- Browser-hosted editors cannot launch the local companion.
+- Binary files, Git submodules, generated files, non-UTF-8 files, and files larger than
+  1 MiB are listed as excluded changes instead of being rendered as code steps.
+- A fully deleted file has no current block to highlight; its explanation remains visible
+  and the target is marked unavailable.
+- If code moves after publication, Agent CodeWalk relocates it only when one unique hash
+  match exists. Otherwise it reports the step as stale instead of highlighting the wrong
+  code.
+- A non-Git workspace can publish a degraded walkthrough, but the interface warns that
+  the inferred change boundary may be incomplete.
+- Integration setup is user-scoped. Project-scoped agent installation is not yet offered.
+
+For common setup and playback problems, see [Troubleshooting](docs/troubleshooting.md).
+
+## Project documentation
+
+- [Architecture](docs/architecture.md) — components, trust boundaries, storage, and data flow
+- [Troubleshooting](docs/troubleshooting.md) — installation, discovery, stale sessions, and logs
+- [Contributing](CONTRIBUTING.md) — development setup, quality gates, and pull requests
+- [Support](SUPPORT.md) — where to ask and what to include in a useful report
+- [Code of Conduct](CODE_OF_CONDUCT.md) — community expectations and private reporting
+- [Agent instructions](AGENTS.md) — repository rules for coding agents
+- [Security policy](SECURITY.md) — supported versions and private vulnerability reporting
+- [Release and publishing guide](docs/publishing.md) — Marketplace, Open VSX, and GitHub Releases
+- [Release checklist](docs/release-checklist.md) — automated and manual acceptance gates
+- [Roadmap](docs/roadmap.md) — priorities on the path to 1.0
+- [Changelog](extension/CHANGELOG.md) — release-by-release user-visible changes
+
+## Contributing
+
+Agent CodeWalk is built with strict TypeScript and safe Rust. Start with
+[CONTRIBUTING.md](CONTRIBUTING.md), which explains the shared protocol contract and the
+full validation suite. Bug reports and focused pull requests are welcome.
+
+## License
+
+Agent CodeWalk is available under the [MIT License](LICENSE).

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Renders media/icon.png from the same geometry as media/icon.svg.
+// Renders the theme-aware SVG and Marketplace PNG from one geometry definition.
 //
 // The VS Code Marketplace requires a raster icon, and adding a binary asset that
 // nobody can regenerate is worse than keeping the few lines that draw it. The
@@ -16,39 +16,112 @@ const CANVAS = SIZE * SCALE;
 const VIEW_BOX = 24;
 const UNIT = CANVAS / VIEW_BOX;
 
-const BACKGROUND = [0x1f, 0x24, 0x30];
-const CODE_LINE = [0xd6, 0xdc, 0xe8];
-const ACCENT = [0x4f, 0xc1, 0xff];
+const BACKGROUND = [0x08, 0x0d, 0x1a];
+const FRAME = [0x7f, 0x90, 0xb2];
+const CYAN = [0x38, 0xe8, 0xff];
+const VIOLET = [0x8a, 0x6c, 0xff];
 
 const extensionRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 /**
- * Straight strokes in `viewBox` units, mirroring the `d` attributes of icon.svg.
+ * Straight strokes in `viewBox` units. Overlapping round-capped segments form the
+ * open code frame and the route through its three waypoints.
  *
  * @type {ReadonlyArray<{ readonly from: readonly [number, number], readonly to: readonly [number, number], readonly color: readonly number[] }>}
  */
-const strokes = [
-  { from: [5, 5], to: [13, 5], color: CODE_LINE },
-  { from: [5, 10], to: [19, 10], color: CODE_LINE },
-  { from: [5, 15], to: [10, 15], color: CODE_LINE },
-  { from: [5, 20], to: [11, 20], color: CODE_LINE },
-  { from: [16, 16], to: [19, 19], color: ACCENT },
-  { from: [19, 19], to: [16, 22], color: ACCENT },
+const frameStrokes = [
+  { from: [10, 3.75], to: [5.25, 7.5], color: FRAME },
+  { from: [5.25, 7.5], to: [5.25, 16.5], color: FRAME },
+  { from: [5.25, 16.5], to: [10, 20.25], color: FRAME },
+  { from: [14, 3.75], to: [18.75, 7.5], color: FRAME },
+  { from: [18.75, 7.5], to: [18.75, 16.5], color: FRAME },
+  { from: [18.75, 16.5], to: [14, 20.25], color: FRAME },
 ];
 
-const STROKE_WIDTH = 1.8;
+const routeStrokes = [
+  { from: [9, 6.5], to: [9, 9], color: CYAN },
+  { from: [9, 9], to: [12, 12], color: CYAN },
+  { from: [12, 12], to: [12, 14.5], color: VIOLET },
+  { from: [12, 14.5], to: [16, 17.5], color: VIOLET },
+];
+
+const nodes = [
+  { center: [9, 6.5], color: CYAN },
+  { center: [12, 12], color: VIOLET },
+  { center: [16, 17.5], color: CYAN },
+];
+
+const FRAME_STROKE_WIDTH = 2.1;
+const ROUTE_STROKE_WIDTH = 1.9;
+const NODE_RADIUS = 1.45;
 const CORNER_RADIUS = 5;
+const CHECK_ONLY = process.argv.includes("--check");
+
+const unknownArguments = process.argv.slice(2).filter((argument) => argument !== "--check");
+if (unknownArguments.length > 0) {
+  throw new Error(`Unknown argument(s): ${unknownArguments.join(", ")}. Expected only --check.`);
+}
 
 async function main() {
   const canvas = createCanvas();
   fillRoundedRectangle(canvas, 0, 0, VIEW_BOX, VIEW_BOX, CORNER_RADIUS, BACKGROUND);
-  for (const stroke of strokes) {
-    drawCapsule(canvas, stroke.from, stroke.to, STROKE_WIDTH / 2, stroke.color);
+  for (const stroke of frameStrokes) {
+    drawCapsule(canvas, stroke.from, stroke.to, FRAME_STROKE_WIDTH / 2, stroke.color);
+  }
+  for (const stroke of routeStrokes) {
+    drawCapsule(canvas, stroke.from, stroke.to, ROUTE_STROKE_WIDTH / 2, stroke.color);
+  }
+  for (const node of nodes) {
+    fillCircle(canvas, node.center, NODE_RADIUS, node.color);
   }
   const pixels = downsample(canvas);
-  const target = path.join(extensionRoot, "media", "icon.png");
-  await fs.writeFile(target, encodePng(pixels, SIZE, SIZE));
-  process.stdout.write(`Wrote ${path.relative(extensionRoot, target)} (${String(SIZE)}x${String(SIZE)}).\n`);
+  const assets = [
+    {
+      content: Buffer.from(renderSvg(), "utf8"),
+      target: path.join(extensionRoot, "media", "icon.svg"),
+    },
+    {
+      content: encodePng(pixels, SIZE, SIZE),
+      target: path.join(extensionRoot, "media", "icon.png"),
+    },
+  ];
+
+  if (CHECK_ONLY) {
+    const stale = [];
+    for (const asset of assets) {
+      const existing = await fs.readFile(asset.target).catch(() => undefined);
+      if (existing === undefined || !existing.equals(asset.content)) {
+        stale.push(path.relative(extensionRoot, asset.target));
+      }
+    }
+    if (stale.length > 0) {
+      throw new Error(`Generated icon assets are stale: ${stale.join(", ")}. Run pnpm icon.`);
+    }
+    process.stdout.write("Verified media/icon.svg and media/icon.png.\n");
+    return;
+  }
+
+  for (const asset of assets) {
+    await fs.writeFile(asset.target, asset.content);
+    process.stdout.write(`Wrote ${path.relative(extensionRoot, asset.target)}.\n`);
+  }
+}
+
+/**
+ * The activity bar needs a monochrome icon that inherits the active editor theme.
+ * Its geometry deliberately matches the colored Marketplace rendering above.
+ *
+ * @returns {string}
+ */
+function renderSvg() {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <path fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" d="m10 3.75-4.75 3.75v9L10 20.25M14 3.75l4.75 3.75v9L14 20.25"/>
+  <path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" d="M9 6.5V9l3 3v2.5l4 3"/>
+  <circle cx="9" cy="6.5" r="1.45" fill="currentColor"/>
+  <circle cx="12" cy="12" r="1.45" fill="currentColor"/>
+  <circle cx="16" cy="17.5" r="1.45" fill="currentColor"/>
+</svg>
+`;
 }
 
 /** @returns {{ readonly data: Uint8ClampedArray, readonly size: number }} */
@@ -129,6 +202,25 @@ function drawCapsule(canvas, from, to, radius, color) {
           : Math.max(0, Math.min(1, ((x - x0) * dx + (y - y0) * dy) / lengthSquared));
       const distance = Math.hypot(x - (x0 + projection * dx), y - (y0 + projection * dy));
       if (distance <= radius) {
+        setPixel(canvas, pixelX, pixelY, color);
+      }
+    }
+  }
+}
+
+/**
+ * @param {{ readonly data: Uint8ClampedArray, readonly size: number }} canvas
+ * @param {readonly [number, number]} center
+ * @param {number} radius
+ * @param {readonly number[]} color
+ * @returns {void}
+ */
+function fillCircle(canvas, center, radius, color) {
+  for (let pixelY = 0; pixelY < canvas.size; pixelY += 1) {
+    for (let pixelX = 0; pixelX < canvas.size; pixelX += 1) {
+      const x = (pixelX + 0.5) / UNIT;
+      const y = (pixelY + 0.5) / UNIT;
+      if (Math.hypot(x - center[0], y - center[1]) <= radius) {
         setPixel(canvas, pixelX, pixelY, color);
       }
     }

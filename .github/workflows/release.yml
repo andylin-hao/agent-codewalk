@@ -72,7 +72,9 @@ jobs:
   marketplace:
     needs: package
     runs-on: ubuntu-latest
-    # A fork or a repository without publishing tokens still gets the GitHub release.
+    # Forks can build release artifacts, but only the canonical repository publishes the
+    # official extension. Missing credentials there are a failed release, not a silent
+    # registry skip.
     if: ${{ github.repository_owner == 'agent-codewalk' }}
     env:
       VSCE_PAT: ${{ secrets.VSCE_PAT }}
@@ -87,9 +89,18 @@ jobs:
           path: artifacts
           merge-multiple: true
       - run: corepack enable
+      - name: Require both registry credentials
+        shell: bash
+        run: |
+          if [[ -z "$VSCE_PAT" || -z "$OVSX_PAT" ]]; then
+            echo "VSCE_PAT and OVSX_PAT are both required for an official release." >&2
+            exit 1
+          fi
       - name: Publish to the VS Code Marketplace
-        if: ${{ env.VSCE_PAT != '' }}
         run: corepack pnpm dlx @vscode/vsce publish --packagePath artifacts/*.vsix
       - name: Publish to Open VSX
-        if: ${{ env.OVSX_PAT != '' }}
-        run: corepack pnpm dlx ovsx publish --packagePath artifacts/*.vsix
+        shell: bash
+        run: |
+          for package in artifacts/*.vsix; do
+            corepack pnpm dlx ovsx publish "$package"
+          done

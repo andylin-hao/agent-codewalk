@@ -1,5 +1,26 @@
 # Changelog
 
+Notable user-visible changes are listed here. Versions follow the extension manifest; the
+same release artifacts are published to the Visual Studio Marketplace, Open VSX, and
+GitHub Releases.
+
+## Unreleased
+
+- Replace the generic code-lines-and-arrow icon with an original open-frame mark whose
+  three connected waypoints represent a guided path through code. The Marketplace icon
+  gains a crisp cyan-and-violet identity, while the matching Activity Bar SVG remains
+  monochrome and theme-aware at small sizes.
+- Rebuild the project and Marketplace documentation around a visual product introduction,
+  direct installation paths, a complete first-run flow, realistic usage examples, privacy
+  details, settings, compatibility, and troubleshooting. The repository README now has a
+  matching professional Simplified Chinese edition.
+- Complete the contributor, agent, architecture, security, support, roadmap, publishing,
+  and release-acceptance documentation so code and release changes have one explicit
+  contract to follow.
+- Make official releases fail when either Marketplace credential is absent and publish the
+  same platform-specific VSIX artifacts to the Visual Studio Marketplace, Open VSX, and
+  GitHub Releases.
+
 ## 0.7.3
 
 - **The expansion arrow reads at a glance.** It was a small, low-contrast glyph that
