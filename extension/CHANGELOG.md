@@ -4,7 +4,7 @@ Notable user-visible changes are listed here. Versions follow the extension mani
 same release artifacts are published to the Visual Studio Marketplace, Open VSX, and
 GitHub Releases.
 
-## Unreleased
+## 0.7.4
 
 - Choose when a walkthrough is produced with `agentCodeWalk.trigger`. The default records
   a baseline before the first edit and publishes after verification, as before; `manual`
@@ -26,6 +26,12 @@ GitHub Releases.
 - Keep **Open Latest Walkthrough** working when the view cannot be revealed. Focusing the
   container was attempted first and thrown from, so on a build that cannot host it the
   command reported an error instead of playing the walkthrough.
+- Build every platform VSIX on a tag and publish the GitHub release with checksums and
+  build provenance. Registry uploads are manual, so the workflow holds no credentials and
+  a tag can neither fail on a missing secret nor reach a public registry.
+
+## 0.7.3
+
 - Replace the generic code-lines-and-arrow icon with an original open-frame mark whose
   three connected waypoints represent a guided path through code. The Marketplace icon
   gains a crisp cyan-and-violet identity, while the matching sidebar SVG remains
@@ -37,15 +43,13 @@ GitHub Releases.
 - Complete the contributor, agent, architecture, security, support, roadmap, publishing,
   and release-acceptance documentation so code and release changes have one explicit
   contract to follow.
-- Build every platform VSIX on a tag and publish the GitHub release with checksums and
-  build provenance. Registry uploads are manual, so the workflow holds no credentials and
-  a tag can neither fail on a missing secret nor reach a public registry.
+- Render the Marketplace and Open VSX listing images. They were referenced by
+  repository-relative path, which a registry serving the README from its own domain has
+  nothing to resolve against, so the logo and the product preview were missing from both
+  listings.
 - Build the macOS Intel package by cross-compiling on Apple silicon. GitHub retired the
   macOS 13 image, and a job requesting a retired runner queues indefinitely rather than
   failing, which left the whole release pending.
-
-## 0.7.3
-
 - **The expansion arrow reads at a glance.** It was a small, low-contrast glyph that
   swapped between two characters; it is now a single chevron that turns, at the editor's
   icon colour and full row size, with a hover and focus state. The rotation is driven by
