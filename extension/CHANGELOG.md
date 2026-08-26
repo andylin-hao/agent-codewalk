@@ -6,9 +6,15 @@ GitHub Releases.
 
 ## Unreleased
 
-- Open Agent CodeWalk in the right-hand Secondary Side Bar by default, with its icon in
-  the top container switcher alongside other agent tools. VS Code still remembers a
-  location the user chooses later.
+- Open Agent CodeWalk from the Activity Bar, alongside the agent and source-control tools
+  people already have. The Secondary Side Bar is hidden by default, so placing the
+  container there left a fresh install with nothing visible anywhere and the extension
+  looked like it had failed to install. VS Code fixes a container's icon to wherever that
+  container lives, so the two cannot be separated; reading a walkthrough beside your code
+  is one drag into the Secondary Side Bar, which VS Code remembers.
+- Keep **Open Latest Walkthrough** working when the view cannot be revealed. Focusing the
+  container was attempted first and thrown from, so on a build that cannot host it the
+  command reported an error instead of playing the walkthrough.
 - Replace the generic code-lines-and-arrow icon with an original open-frame mark whose
   three connected waypoints represent a guided path through code. The Marketplace icon
   gains a crisp cyan-and-violet identity, while the matching sidebar SVG remains
@@ -20,9 +26,12 @@ GitHub Releases.
 - Complete the contributor, agent, architecture, security, support, roadmap, publishing,
   and release-acceptance documentation so code and release changes have one explicit
   contract to follow.
-- Make official releases fail when either Marketplace credential is absent and publish the
-  same platform-specific VSIX artifacts to the Visual Studio Marketplace, Open VSX, and
-  GitHub Releases.
+- Build every platform VSIX on a tag and publish the GitHub release with checksums and
+  build provenance. Registry uploads are manual, so the workflow holds no credentials and
+  a tag can neither fail on a missing secret nor reach a public registry.
+- Build the macOS Intel package by cross-compiling on Apple silicon. GitHub retired the
+  macOS 13 image, and a job requesting a retired runner queues indefinitely rather than
+  failing, which left the whole release pending.
 
 ## 0.7.3
 

@@ -29,12 +29,18 @@ async function readManifest(): Promise<ExtensionManifest> {
 }
 
 describe("workbench placement", () => {
-  it("opens Agent CodeWalk from the right-side container switcher by default", async () => {
+  /**
+   * The icon lives wherever the container is declared, and VS Code offers no way to
+   * separate the two. A reader who cannot find the extension has no way to use it, so it
+   * sits in the Activity Bar beside the agents and source-control tools they already
+   * have, and moving it to the Secondary Side Bar is left to a drag VS Code remembers.
+   */
+  it("puts Agent CodeWalk in the Activity Bar so it can be found", async () => {
     const manifest = await readManifest();
 
     expect(manifest.engines.vscode).toBe("^1.106.0");
-    expect(manifest.contributes.viewsContainers.activitybar).toBeUndefined();
-    expect(manifest.contributes.viewsContainers.secondarySidebar).toEqual([
+    expect(manifest.contributes.viewsContainers.secondarySidebar).toBeUndefined();
+    expect(manifest.contributes.viewsContainers.activitybar).toEqual([
       {
         id: "agentCodeWalk",
         title: "%view.container.title%",

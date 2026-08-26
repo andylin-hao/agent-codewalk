@@ -19,7 +19,7 @@ import { withFileTransaction } from "./file-transaction.js";
 
 const PRODUCT = "agent-codewalk";
 /** The release this extension ships, and the companion version it installs. */
-export const VERSION = "0.7.3";
+export const VERSION = "0.7.4";
 
 type AgentName = "Codex" | "Claude Code" | "OpenCode";
 

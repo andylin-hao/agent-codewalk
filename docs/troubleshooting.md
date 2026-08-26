@@ -29,13 +29,15 @@ prove that a running agent loaded it; the MCP listing result is the important li
 
 ## No walkthrough appears
 
-### The Secondary Side Bar is hidden or the view was moved
+### The view was moved, or its bar is hidden
 
-On a fresh VS Code 1.106 or newer profile, Agent CodeWalk appears in the container
-switcher at the top of the right-hand Secondary Side Bar. Run **View: Toggle Secondary
-Side Bar Visibility** if that region is hidden. VS Code remembers user layout changes, so
-run **View: Reset View Locations** if you previously moved Agent CodeWalk and want its
-default right-side position back.
+Agent CodeWalk appears in the Activity Bar, alongside your agent and source-control
+tools. Run **View: Appearance: Show Activity Bar** if that strip is hidden.
+
+VS Code remembers layout changes, so a container dragged into the Secondary Side Bar stays
+there and its icon goes with it. Run **View: Toggle Secondary Side Bar Visibility** to
+reveal that region, or **View: Reset View Locations** to return Agent CodeWalk to the
+Activity Bar.
 
 ### The agent integration was never set up
 

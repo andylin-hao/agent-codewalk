@@ -48,7 +48,16 @@ export function activate(context: vscode.ExtensionContext): void {
       );
     }),
     command("agentCodeWalk.openLatest", async () => {
-      await vscode.commands.executeCommand("agentCodeWalk.walkthrough.focus");
+      // Revealing the view is a convenience, not the command. An editor whose build
+      // cannot focus this container must still play the walkthrough rather than failing
+      // the whole command with an error about a view the reader never asked for.
+      try {
+        await vscode.commands.executeCommand("agentCodeWalk.walkthrough.focus");
+      } catch (error) {
+        output.warn(
+          `Cannot reveal the Agent CodeWalk view: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
       await player.openLatest();
     }),
     command("agentCodeWalk.previous", () => player.previous()),
