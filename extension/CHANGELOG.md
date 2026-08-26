@@ -6,12 +6,12 @@ GitHub Releases.
 
 ## Unreleased
 
-- Open Agent CodeWalk from the Activity Bar, alongside the agent and source-control tools
-  people already have. The Secondary Side Bar is hidden by default, so placing the
-  container there left a fresh install with nothing visible anywhere and the extension
-  looked like it had failed to install. VS Code fixes a container's icon to wherever that
-  container lives, so the two cannot be separated; reading a walkthrough beside your code
-  is one drag into the Secondary Side Bar, which VS Code remembers.
+- Open Agent CodeWalk from the Secondary Side Bar, beside the agent that produced the
+  walkthrough. VS Code keeps that bar hidden until it is opened, and a hidden bar has no
+  container switcher, so on a fresh install the icon appeared to be missing entirely. The
+  documentation now says so and gives the shortcut that reveals it, and both the
+  publication notification and **Open Latest Walkthrough** open the bar for you, so
+  neither depends on finding an icon first.
 - Keep **Open Latest Walkthrough** working when the view cannot be revealed. Focusing the
   container was attempted first and thrown from, so on a build that cannot host it the
   command reported an error instead of playing the walkthrough.

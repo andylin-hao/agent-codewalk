@@ -30,17 +30,18 @@ async function readManifest(): Promise<ExtensionManifest> {
 
 describe("workbench placement", () => {
   /**
-   * The icon lives wherever the container is declared, and VS Code offers no way to
-   * separate the two. A reader who cannot find the extension has no way to use it, so it
-   * sits in the Activity Bar beside the agents and source-control tools they already
-   * have, and moving it to the Secondary Side Bar is left to a drag VS Code remembers.
+   * Agent CodeWalk belongs beside the agent that produced the walkthrough, which VS Code
+   * puts in the Secondary Side Bar. That bar is hidden until it is opened, so the icon is
+   * only findable once it is, and the documentation has to say so rather than describing
+   * a switcher a new reader cannot see. Moving the container to the Activity Bar would
+   * make it findable and put it away from the agents, which is the wrong trade.
    */
-  it("puts Agent CodeWalk in the Activity Bar so it can be found", async () => {
+  it("puts Agent CodeWalk beside the agents in the Secondary Side Bar", async () => {
     const manifest = await readManifest();
 
     expect(manifest.engines.vscode).toBe("^1.106.0");
-    expect(manifest.contributes.viewsContainers.secondarySidebar).toBeUndefined();
-    expect(manifest.contributes.viewsContainers.activitybar).toEqual([
+    expect(manifest.contributes.viewsContainers.activitybar).toBeUndefined();
+    expect(manifest.contributes.viewsContainers.secondarySidebar).toEqual([
       {
         id: "agentCodeWalk",
         title: "%view.container.title%",

@@ -126,9 +126,11 @@ VSIX 适合离线安装或固定版本，但不会走扩展市场的常规自动
 
 ## 在编辑器里阅读
 
-Agent 发布完成后，可以直接点击通知，也可以点击活动栏里的 Agent CodeWalk 图标，或运行 **Agent CodeWalk: Open Latest Walkthrough**。图标就在你常用的 Agent 与版本控制工具旁边，也就是大多数人会去找扩展的地方。
+Agent 发布完成后，可以直接点击通知，也可以运行 **Agent CodeWalk: Open Latest Walkthrough**。这两种方式都会自动展开面板，不需要先找到图标。
 
-VS Code 把容器的图标固定在容器所在的位置，因此活动栏图标打开的是左侧主侧边栏。如果你更习惯把讲解放在代码旁边阅读，把图标拖进右侧辅助侧边栏即可，VS Code 会记住这次调整，**View: Reset View Locations** 可以撤销。
+Agent CodeWalk 显示在右侧辅助侧边栏，与产出讲解的 Agent 放在一起。**VS Code 默认隐藏这个侧边栏**，用 `Ctrl+Alt+B`（macOS 为 `Cmd+Alt+B`）或 **View → Appearance → Secondary Side Bar** 打开后，顶部的切换条里就会出现 Agent CodeWalk 图标。侧边栏没有打开时，本来就不存在放图标的位置，这也是最常见的“找不到图标”的原因。
+
+VS Code 把图标固定在容器所在的位置，两者无法分处两侧。如果更习惯放在左边，把图标拖进活动栏即可，VS Code 会记住这次调整，**View: Reset View Locations** 可以撤销。
 
 | 操作 | 快捷键 | 命令 |
 | --- | --- | --- |
@@ -156,7 +158,7 @@ Agent CodeWalk 采用本地优先（local-first）设计：
 
 ## 兼容性与限制
 
-- 需要桌面版 VS Code 1.106 或更高版本。Cursor、VSCodium、Remote SSH 和 WSL 需要提供兼容的桌面扩展宿主。
+- 需要桌面版 VS Code 1.106 或更高版本，以支持右侧辅助侧边栏的视图容器。Cursor、VSCodium、Remote SSH 和 WSL 需要提供兼容的桌面扩展宿主。
 - 浏览器版编辑器无法启动本地配套程序。
 - 二进制文件、Git 子模块、生成文件、非 UTF-8 文件和超过 1 MiB 的文件不会生成代码步骤，但会列在排除项中。
 - 整个文件被删除后，已经没有当前代码可供高亮；说明会保留，并明确显示目标不可用。

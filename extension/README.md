@@ -103,13 +103,16 @@ that exists now.
 
 ## Navigate
 
-Select the Agent CodeWalk icon in the Activity Bar, alongside your agent and
-source-control tools, accept the publication notification, or run **Agent CodeWalk: Open
-Latest Walkthrough**.
+Agent CodeWalk lives in the Secondary Side Bar, beside the agent that produced the
+walkthrough. **VS Code keeps that bar hidden until you open it**, so open it first with
+`Ctrl+Alt+B` (`Cmd+Alt+B` on macOS) and the Agent CodeWalk icon appears in the switcher
+along its top edge.
 
-To read a walkthrough beside your code rather than opposite it, drag the icon into the
-Secondary Side Bar. VS Code remembers that, and **View: Reset View Locations** puts it
-back.
+You never have to find it, though: accept the publication notification, or run **Agent
+CodeWalk: Open Latest Walkthrough**. Either reveals the bar for you.
+
+Prefer it on the left? Drag the icon into the Activity Bar. VS Code remembers the move,
+and **View: Reset View Locations** undoes it.
 
 | Action | Shortcut |
 | --- | --- |
@@ -135,7 +138,8 @@ in the project repository.
 
 ## Requirements
 
-- Desktop VS Code 1.106 or newer, or a compatible Cursor/VSCodium build
+- Desktop VS Code 1.106 or newer, or a compatible Cursor/VSCodium build with Secondary
+  Side Bar view containers
 - Codex, Claude Code, or OpenCode installed before running integration setup
 - A platform package matching the machine that runs the extension host
 
