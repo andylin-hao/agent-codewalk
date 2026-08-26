@@ -19,7 +19,7 @@
   },
   "homepage": "https://github.com/andylin-hao/agent-codewalk#readme",
   "engines": {
-    "vscode": "^1.96.0"
+    "vscode": "^1.106.0"
   },
   "extensionKind": [
     "workspace"
@@ -53,7 +53,7 @@
   ],
   "contributes": {
     "viewsContainers": {
-      "activitybar": [
+      "secondarySidebar": [
         {
           "id": "agentCodeWalk",
           "title": "%view.container.title%",
@@ -321,7 +321,7 @@
   "devDependencies": {
     "@eslint/js": "^9.35.0",
     "@types/node": "^24.3.0",
-    "@types/vscode": "^1.96.0",
+    "@types/vscode": "^1.106.0",
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.6.0",
     "@vitest/coverage-v8": "^3.2.4",

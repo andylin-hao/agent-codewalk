@@ -96,8 +96,10 @@ that exists now.
 
 ## Navigate
 
-Open the Agent CodeWalk Activity Bar view, accept the publication notification, or run
-**Agent CodeWalk: Open Latest Walkthrough**.
+Open Agent CodeWalk from the container switcher at the top of the right-hand Secondary
+Side Bar, accept the publication notification, or run **Agent CodeWalk: Open Latest
+Walkthrough**. VS Code uses this right-side location for a fresh layout and remembers any
+location you choose later.
 
 | Action | Shortcut |
 | --- | --- |
@@ -123,7 +125,8 @@ in the project repository.
 
 ## Requirements
 
-- Desktop VS Code 1.96 or newer, or a compatible Cursor/VSCodium build
+- Desktop VS Code 1.106 or newer, or a compatible Cursor/VSCodium build with native
+  Secondary Side Bar view containers
 - Codex, Claude Code, or OpenCode installed before running integration setup
 - A platform package matching the machine that runs the extension host
 

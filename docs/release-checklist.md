@@ -115,7 +115,8 @@ use the Linux package even when the local desktop runs another OS.
 
 For each representative install:
 
-- [ ] The extension activates without an error and shows its Activity Bar icon.
+- [ ] The extension activates without an error and shows its icon in the right-hand
+  Secondary Side Bar container switcher.
 - [ ] The listing description and editor UI follow the selected language.
 - [ ] The packaged companion exists, is executable, and matches the host platform.
 - [ ] Installing from a registry follows its update path.
@@ -149,8 +150,8 @@ configuration.
   after verification.
 - [ ] Pre-existing changes are not attributed to the task.
 - [ ] Publication refuses an intentionally uncovered text hunk.
-- [ ] The completed walkthrough opens from the notification, Activity Bar, and
-  **Open Latest Walkthrough** command.
+- [ ] The completed walkthrough opens in the right-hand Secondary Side Bar from its icon,
+  the notification, and the **Open Latest Walkthrough** command.
 - [ ] Nested steps expand and collapse by pointer and keyboard.
 - [ ] `Alt+]`, `Alt+[`, `Alt+\`, and the jump shortcut work.
 - [ ] Dependency graph and file views show the same steps and preserve the active step.

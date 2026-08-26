@@ -159,8 +159,10 @@ chat and do not create an unnecessary walkthrough.
 
 ## Read a walkthrough
 
-Accept the publication notification, select the Agent CodeWalk icon in the Activity Bar,
-or run **Agent CodeWalk: Open Latest Walkthrough**.
+Accept the publication notification, select the Agent CodeWalk icon at the top of the
+right-hand Secondary Side Bar, or run **Agent CodeWalk: Open Latest Walkthrough**. A fresh
+layout opens Agent CodeWalk on the right alongside other agent tools; if you move it,
+VS Code remembers your chosen location.
 
 | Action | Shortcut | Command |
 | --- | --- | --- |
@@ -225,8 +227,9 @@ Most users do not need to change these values.
 
 ## Compatibility and current limits
 
-- Desktop VS Code 1.96 or newer is required. Cursor, VSCodium, Remote SSH, and WSL are
-  supported when they provide a compatible desktop extension host.
+- Desktop VS Code 1.106 or newer is required for the native Secondary Side Bar container.
+  Cursor, VSCodium, Remote SSH, and WSL are supported when they provide a compatible
+  desktop extension host.
 - Browser-hosted editors cannot launch the local companion.
 - Binary files, Git submodules, generated files, non-UTF-8 files, and files larger than
   1 MiB are listed as excluded changes instead of being rendered as code steps.

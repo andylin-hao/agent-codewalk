@@ -6,9 +6,12 @@ GitHub Releases.
 
 ## Unreleased
 
+- Open Agent CodeWalk in the right-hand Secondary Side Bar by default, with its icon in
+  the top container switcher alongside other agent tools. VS Code still remembers a
+  location the user chooses later.
 - Replace the generic code-lines-and-arrow icon with an original open-frame mark whose
   three connected waypoints represent a guided path through code. The Marketplace icon
-  gains a crisp cyan-and-violet identity, while the matching Activity Bar SVG remains
+  gains a crisp cyan-and-violet identity, while the matching sidebar SVG remains
   monochrome and theme-aware at small sizes.
 - Rebuild the project and Marketplace documentation around a visual product introduction,
   direct installation paths, a complete first-run flow, realistic usage examples, privacy

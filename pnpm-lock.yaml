@@ -21,7 +21,7 @@ importers:
         specifier: ^24.3.0
         version: 24.13.3
       '@types/vscode':
-        specifier: ^1.96.0
+        specifier: ^1.106.0
         version: 1.134.0
       '@vitest/coverage-v8':
         specifier: ^3.2.4
