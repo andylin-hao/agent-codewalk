@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="media/icon.png" width="96" alt="Agent CodeWalk logo">
+  <img src="https://raw.githubusercontent.com/andylin-hao/agent-codewalk/main/extension/media/icon.png" width="96" alt="Agent CodeWalk logo">
 </p>
 
 <h1 align="center">Agent CodeWalk</h1>
@@ -14,7 +14,14 @@
   <a href="https://github.com/andylin-hao/agent-codewalk">GitHub</a>
 </p>
 
-![Agent CodeWalk product preview](media/hero.png)
+<p align="center">
+  <a href="https://marketplace.visualstudio.com/items?itemName=agent-codewalk.agent-codewalk"><img alt="Visual Studio Marketplace version" src="https://img.shields.io/visual-studio-marketplace/v/agent-codewalk.agent-codewalk?style=flat-square&label=VS%20Marketplace"></a>
+  <a href="https://open-vsx.org/extension/agent-codewalk/agent-codewalk"><img alt="Open VSX version" src="https://img.shields.io/open-vsx/v/agent-codewalk/agent-codewalk?style=flat-square&label=Open%20VSX"></a>
+  <a href="https://github.com/andylin-hao/agent-codewalk/releases/latest"><img alt="Latest GitHub release" src="https://img.shields.io/github/v/release/andylin-hao/agent-codewalk?style=flat-square"></a>
+  <a href="https://github.com/andylin-hao/agent-codewalk/blob/main/LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-5c6ac4?style=flat-square"></a>
+</p>
+
+![Agent CodeWalk product preview](https://raw.githubusercontent.com/andylin-hao/agent-codewalk/main/extension/media/hero.png)
 
 Agent CodeWalk lets you read what Codex, Claude Code, or OpenCode changed—or what it
 explained—as a walkthrough inside VS Code, Cursor, VSCodium, and compatible desktop
