@@ -15,7 +15,6 @@ links to evidence in the release pull request.
 - [ ] Verification date: `__________`
 - [ ] Visual Studio Marketplace publisher access confirmed
 - [ ] Open VSX namespace access confirmed
-- [ ] GitHub Actions `VSCE_PAT` and `OVSX_PAT` secrets present and current
 
 ## Source and documentation
 
@@ -67,7 +66,7 @@ links to evidence in the release pull request.
 
 - [ ] The release commit uses Conventional Commits and contains `Signed-off-by:`.
 - [ ] The annotated `v<version>` tag is signed and points at that commit.
-- [ ] The tag-triggered release workflow builds all four targets:
+- [ ] The tag-triggered release workflow is green and builds all four targets:
   - [ ] `linux-x64`
   - [ ] `win32-x64`
   - [ ] `darwin-x64`
@@ -80,9 +79,17 @@ links to evidence in the release pull request.
 
 ## Registry publication
 
+Uploads are manual. Download the released packages rather than rebuilding, so all three
+channels carry byte-identical files:
+
+- [ ] `gh release download v<version> --pattern "*.vsix"` retrieved all four packages.
+- [ ] Every platform package was uploaded, not just the one built on the release machine.
+  A registry carrying a single package leaves the other platforms with a companion binary
+  that cannot run.
+
 ### Visual Studio Marketplace
 
-- [ ] The release workflow uploaded the exact GitHub VSIX artifacts, not a second build.
+- [ ] The upload used the exact GitHub VSIX artifacts, not a second build.
 - [ ] The listing shows the new version for all four supported targets.
 - [ ] The logo, product figure, English copy, links, changelog, and license render correctly.
 - [ ] Searching **Agent CodeWalk** finds publisher `agent-codewalk`.
@@ -90,15 +97,14 @@ links to evidence in the release pull request.
 
 ### Open VSX
 
-- [ ] The release workflow uploaded the exact GitHub VSIX artifacts.
+- [ ] The upload used the exact GitHub VSIX artifacts.
 - [ ] The owned `agent-codewalk` namespace shows the new version for all four targets.
 - [ ] The logo, product figure, README, links, changelog, and license render correctly.
 - [ ] Searching **Agent CodeWalk** finds the extension in a clean VSCodium profile.
 - [ ] VSCodium installs `agent-codewalk.agent-codewalk` from Open VSX.
 
 Do not mark the release complete if either registry is missing. Follow
-[publishing.md](publishing.md) for credential failure, registry retry, and patch-release
-rules.
+[publishing.md](publishing.md) for registry retry and patch-release rules.
 
 ## Clean-profile installation matrix
 

@@ -1,3 +1,6 @@
+# Tagging builds every platform package and publishes the GitHub release. Uploading to
+# the Visual Studio Marketplace and Open VSX is done by hand, so no registry
+# credentials are needed here and a tag never touches a public registry.
 name: release
 
 on:
@@ -80,39 +83,3 @@ jobs:
         with:
           generate_release_notes: true
           files: artifacts/*
-
-  marketplace:
-    needs: package
-    runs-on: ubuntu-latest
-    # Forks can build release artifacts, but only the canonical repository publishes the
-    # official extension. Missing credentials there are a failed release, not a silent
-    # registry skip.
-    if: ${{ github.repository_owner == 'andylin-hao' }}
-    env:
-      VSCE_PAT: ${{ secrets.VSCE_PAT }}
-      OVSX_PAT: ${{ secrets.OVSX_PAT }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          merge-multiple: true
-      - run: corepack enable
-      - name: Require both registry credentials
-        shell: bash
-        run: |
-          if [[ -z "$VSCE_PAT" || -z "$OVSX_PAT" ]]; then
-            echo "VSCE_PAT and OVSX_PAT are both required for an official release." >&2
-            exit 1
-          fi
-      - name: Publish to the VS Code Marketplace
-        run: corepack pnpm dlx @vscode/vsce publish --packagePath artifacts/*.vsix
-      - name: Publish to Open VSX
-        shell: bash
-        run: |
-          for package in artifacts/*.vsix; do
-            corepack pnpm dlx ovsx publish "$package"
-          done

@@ -42,14 +42,12 @@ The release workflow publishes registries only when `github.repository_owner` is
 ### Visual Studio Marketplace
 
 1. Create or verify the `agent-codewalk` publisher in the Visual Studio Marketplace.
-2. Confirm the account used for automation can manage that publisher.
-3. Create a publishing credential accepted by `@vscode/vsce` for that publisher.
-4. Add it to the GitHub repository as the Actions secret `VSCE_PAT`.
-5. Review publisher display name, icon, support links, and verification options in the
+2. Confirm the account you upload from can manage that publisher.
+3. Review publisher display name, icon, support links, and verification options in the
    Marketplace portal.
 
-The current workflow uses `VSCE_PAT`. A future migration to VSCE trusted publishing/OIDC
-should be made as a focused workflow change, tested in a prerelease, and documented here.
+Uploads are manual. The release workflow holds no marketplace credentials, so a tag
+builds and releases the packages but never reaches a registry.
 
 ### Open VSX
 
@@ -61,10 +59,8 @@ should be made as a focused workflow change, tested in a prerelease, and documen
    ```
 
 3. Claim namespace ownership so the listing can be verified.
-4. Add the Open VSX access token to GitHub as the Actions secret `OVSX_PAT`.
-5. Confirm the namespace allows the automation account to publish the extension.
 
-Never place either token in a repository file, shell history shared with others, build
+Never place an access token in a repository file, shell history shared with others, build
 log, issue, or release note.
 
 ## Prepare a version
@@ -111,15 +107,23 @@ Pushing `v*` starts `.github/workflows/release.yml`:
 2. Each runner installs locked dependencies, verifies version synchronization, builds the
    native companion, bundles the extension, stages the companion, and packages one target
    VSIX.
-3. Two downstream jobs download those exact artifacts. The `publish` job generates
-   `SHA256SUMS`, attaches provenance, and creates a GitHub release with generated notes and
-   all assets.
-4. In parallel, the `marketplace` job validates both publishing secrets, then uploads the
-   same VSIX files to the Visual Studio Marketplace and Open VSX.
+3. The `publish` job downloads those exact artifacts, generates `SHA256SUMS`, attaches
+   provenance, and creates a GitHub release with generated notes and all assets.
 
-The official registry job must fail when either credential is missing. A GitHub release
-without both registry publications is an incomplete official release, not a successful
-partial result.
+The workflow stops there. Upload the released VSIX files to the Visual Studio Marketplace
+and Open VSX yourself, taking them from the GitHub release so that all three channels
+carry byte-identical packages:
+
+```bash
+gh release download v0.8.0 --pattern "*.vsix"
+corepack pnpm dlx @vscode/vsce publish --packagePath agent-codewalk-*.vsix
+for package in agent-codewalk-*.vsix; do
+  corepack pnpm dlx ovsx publish "$package"
+done
+```
+
+Upload every platform package. A registry that carries only one of them leaves the other
+platforms installing an extension whose companion binary cannot run.
 
 ## Verify all three channels
 
