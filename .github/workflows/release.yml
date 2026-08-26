@@ -17,8 +17,12 @@ jobs:
             target: linux-x64
           - os: windows-2022
             target: win32-x64
-          - os: macos-13
+          # GitHub retired the macOS 13 Intel image, and a job asking for it queues
+          # forever rather than failing, which leaves the whole release pending. Apple
+          # silicon ships both SDKs, so the Intel package is cross-compiled here.
+          - os: macos-14
             target: darwin-x64
+            rust-target: x86_64-apple-darwin
           - os: macos-14
             target: darwin-arm64
     runs-on: ${{ matrix.os }}
@@ -28,17 +32,26 @@ jobs:
         with:
           node-version: 22
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-target }}
       - run: corepack enable
       - run: corepack pnpm install --frozen-lockfile
       - name: Verify the version is single-sourced
         run: node scripts/sync-version.mjs --check
-      - run: cargo build --release --locked
+      - name: Build the companion
+        shell: bash
+        run: |
+          if [[ -n "${{ matrix.rust-target }}" ]]; then
+            cargo build --release --locked --target "${{ matrix.rust-target }}"
+          else
+            cargo build --release --locked
+          fi
       - name: Build platform VSIX
         shell: bash
         run: |
           cd extension
           corepack pnpm build
-          node scripts/stage-companion.mjs
+          AGENT_CODEWALK_RUST_TARGET="${{ matrix.rust-target }}" node scripts/stage-companion.mjs
           corepack pnpm exec vsce package --no-dependencies --target "${{ matrix.target }}" --out "agent-codewalk-${{ matrix.target }}.vsix"
       - uses: actions/upload-artifact@v4
         with:
