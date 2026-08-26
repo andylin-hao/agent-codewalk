@@ -182,8 +182,20 @@ Agent CodeWalk 采用本地优先（local-first）设计：
 
 默认配置适合大多数用户。如需调整，可在编辑器设置中搜索 `Agent CodeWalk`。
 
+### 什么时候生成讲解
+
+`agentCodeWalk.trigger` 提供两种工作方式：
+
+- **`auto`**（默认）——Agent 在首次修改前记录 baseline，验证完成后发布讲解，每次代码改动都会有讲解。
+- **`manual`**——只有你主动要求时才发布。事先没有要求就不会记录 baseline；事后才要求时，讲解会标记为 baseline 不完整，因为此时只能从仓库当前状态推断改动范围。
+
+请求解释现有代码在两种模式下行为一致，因为那本身就是一次请求。
+
+该设置会写入配套程序的数据目录——这是编辑器与由 Agent 启动的配套程序之间唯一的共享位置。提示与 stop hook 会立即生效；发送给 Agent 的说明每个会话只发送一次，因此正在运行的会话需要重启才会改变行为。
+
 | 设置 | 默认值 | 作用 |
 | --- | --- | --- |
+| `agentCodeWalk.trigger` | `auto` | 每次代码改动后自动生成讲解，还是仅在你主动要求时生成 |
 | `agentCodeWalk.initialDepth` | `2` | 第一次打开时，流程图默认展开的层数 |
 | `agentCodeWalk.notifyOnPublish` | `true` | 收到新的代码走读时是否显示通知 |
 | `agentCodeWalk.refreshInterval` | `4000` | 文件监听不可用时的轮询间隔，单位为毫秒 |

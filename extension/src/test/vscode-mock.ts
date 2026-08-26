@@ -224,6 +224,7 @@ interface MockState {
   statusBarItems: MockStatusBarItem[];
   codeLensProviders: unknown[];
   contentProviders: Map<string, unknown>;
+  configurationListeners: ((event: MockConfigurationChange) => void)[];
   quickPickResponses: unknown[];
   quickPickRequests: unknown[][];
   treeDataProviders: Map<string, unknown>;
@@ -251,6 +252,7 @@ function createState(): MockState {
     statusBarItems: [],
     codeLensProviders: [],
     contentProviders: new Map<string, unknown>(),
+    configurationListeners: [],
     quickPickResponses: [],
     quickPickRequests: [],
     treeDataProviders: new Map<string, unknown>(),
@@ -304,7 +306,28 @@ export const workspace = {
     mockState.contentProviders.set(scheme, provider);
     return new Disposable(() => mockState.contentProviders.delete(scheme));
   },
+  onDidChangeConfiguration(listener: (event: MockConfigurationChange) => void): Disposable {
+    mockState.configurationListeners.push(listener);
+    return new Disposable(() => {
+      const at = mockState.configurationListeners.indexOf(listener);
+      if (at >= 0) {
+        mockState.configurationListeners.splice(at, 1);
+      }
+    });
+  },
 };
+
+/** The shape `onDidChangeConfiguration` hands its listeners. */
+export interface MockConfigurationChange {
+  readonly affectsConfiguration: (section: string) => boolean;
+}
+
+/** Notifies the extension that one setting changed, as VS Code does. */
+export function fireConfigurationChange(section: string): void {
+  for (const listener of [...mockState.configurationListeners]) {
+    listener({ affectsConfiguration: (candidate) => candidate === section });
+  }
+}
 
 /** Builds a document from text, for tests that do not want a file on disk. */
 export function documentFromText(fsPath: string, content: string): MockTextDocument {

@@ -126,6 +126,15 @@ You never have to find an icon, though: accept the publication notification, or 
 The current step also appears as a CodeLens above its block and as progress in the status
 bar. Select **Compare with before** when a modified step has baseline text available.
 
+## When a walkthrough is produced
+
+By default the agent publishes one after every code change. Set `agentCodeWalk.trigger` to
+`manual` and it publishes only when you ask, which suits a workspace where most changes
+are routine. Asking an agent to explain existing code works either way, since that is
+already a request.
+
+Restart an active agent session after changing this, so it picks up the new instructions.
+
 ## Local-first and private
 
 Agent CodeWalk includes no telemetry, makes no network requests, and does not call a

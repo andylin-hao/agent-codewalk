@@ -6,6 +6,13 @@ GitHub Releases.
 
 ## Unreleased
 
+- Choose when a walkthrough is produced with `agentCodeWalk.trigger`. The default records
+  a baseline before the first edit and publishes after verification, as before; `manual`
+  publishes only when the reader asks, and stops the agent recording baselines or being
+  reminded about them in between. The setting reaches the companion through the data
+  directory the two processes share, so the prompt reminder and the stop hook see a change
+  at once while server instructions apply from the next agent session.
+
 - Offer Agent CodeWalk from both the Activity Bar and the Secondary Side Bar. The two
   share one session and show the same step, so the walkthrough stays beside the agent that
   produced it without that being the only place it can be found. VS Code keeps the

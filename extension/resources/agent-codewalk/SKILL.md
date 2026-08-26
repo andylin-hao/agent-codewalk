@@ -9,6 +9,11 @@ Turn work on this codebase into a walkthrough the user can step through in VS Co
 
 Two publication paths. Choose by whether the task changed files.
 
+A workspace may be set to publish on request only. The MCP server says so in its
+instructions when it is; follow that, and do not record a baseline for a coding task the
+user has not asked for a walkthrough of. Everything below still applies once they do ask,
+and an explanation is always a request.
+
 ## A. The task changed files
 
 1. Immediately before the first file mutation, call `begin_task` with the user's concrete goal and your agent kind. Retain the returned `taskId` for this task.

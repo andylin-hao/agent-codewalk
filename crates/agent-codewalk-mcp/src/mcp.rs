@@ -8,9 +8,28 @@ use crate::{
     model::{
         BeginTaskRequest, PublishExplanationRequest, PublishWalkthroughRequest, TaskIdRequest,
     },
+    settings::{self, Trigger},
 };
 
 const MCP_PROTOCOL_VERSION: &str = "2025-06-18";
+
+/// What a manual trigger replaces the change-path steps with.
+///
+/// Under a manual trigger the reader asks for a walkthrough when they want one, so an
+/// agent that recorded a baseline before every edit would leave unpublished baselines
+/// behind and nag about them. The explanation path is unchanged, because asking to have
+/// code explained is already a request.
+const MANUAL_TRIGGER: &str = "\
+This workspace is set to publish walkthroughs on request only.
+
+Do not call begin_task or publish_walkthrough for a coding task unless the user asks for \
+a walkthrough of it. When they do ask before you start, call begin_task immediately \
+before the first file mutation and publish_walkthrough after verification, exactly as \
+below. When they ask only after the work is done, publish without a taskId, include goal \
+and agent, and tell them the resulting degradedBaseline session may include changes made \
+before they asked.
+
+";
 
 /// The workflow, sent during `initialize`.
 ///
@@ -106,7 +125,7 @@ fn handle_request(service: &CodeWalkService, request: &Value) -> Option<Value> {
                 "title": "Agent CodeWalk",
                 "version": env!("CARGO_PKG_VERSION")
             },
-            "instructions": INSTRUCTIONS
+            "instructions": instructions(settings::trigger(service.storage_root()))
         })),
         "ping" => Ok(json!({})),
         "tools/list" => Ok(json!({ "tools": tool_definitions() })),
@@ -131,6 +150,17 @@ fn handle_request(service: &CodeWalkService, request: &Value) -> Option<Value> {
         Ok(value) => json!({ "jsonrpc": "2.0", "id": identifier, "result": value }),
         Err(error) => rpc_error(identifier, -32602, &error.to_string()),
     })
+}
+
+/// The workflow text for a trigger mode.
+///
+/// A manual trigger prepends its rule rather than replacing the workflow, because every
+/// instruction about how to write a walkthrough still applies once one is asked for.
+fn instructions(trigger: Trigger) -> String {
+    match trigger {
+        Trigger::Auto => INSTRUCTIONS.to_owned(),
+        Trigger::Manual => format!("{MANUAL_TRIGGER}{INSTRUCTIONS}"),
+    }
 }
 
 fn call_tool(service: &CodeWalkService, params: Value) -> Result<Value> {
@@ -403,6 +433,23 @@ mod tests {
 
     /// An agent that never loads the skill still gets the presentation rules, so the
     /// instructions are the only place they are guaranteed to arrive.
+    #[test]
+    fn a_manual_trigger_forbids_an_unrequested_baseline() {
+        let text = super::instructions(crate::settings::Trigger::Manual);
+        assert!(text.contains("on request only"));
+        assert!(text.contains("unless the user asks"));
+        // The rule is prepended, so everything about writing a walkthrough still applies.
+        assert!(text.contains("3 to 7 top-level steps"));
+        assert!(text.contains("publish_explanation"));
+    }
+
+    #[test]
+    fn an_automatic_trigger_says_nothing_about_asking() {
+        let text = super::instructions(crate::settings::Trigger::Auto);
+        assert!(!text.contains("on request only"));
+        assert!(text.contains("Immediately before the first file mutation"));
+    }
+
     #[test]
     fn instructions_state_how_to_write_a_step() {
         let workspace = tempdir().unwrap();

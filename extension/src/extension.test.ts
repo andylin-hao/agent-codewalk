@@ -1,3 +1,6 @@
+import { promises as fs } from "node:fs";
+import path from "node:path";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
 
@@ -13,6 +16,7 @@ import {
   writeWorkspaceFile,
 } from "./test/fixtures.js";
 import {
+  fireConfigurationChange,
   mockState,
   resetVscodeMock,
   setConfiguration,
@@ -84,6 +88,35 @@ function summary(id: string, position: number, active: boolean): StepSummary {
 }
 
 describe("activate", () => {
+  it("records the trigger for the companion, and again when it changes", async () => {
+    // The two processes share only the data directory, so this file is the whole of how
+    // an editor setting reaches an agent that is already configured.
+    const settings = path.join(workspace.dataDirectory, "settings.json");
+    activateExtension();
+    await vi.waitFor(async () => {
+      expect(JSON.parse(await fs.readFile(settings, "utf8"))).toEqual({ trigger: "auto" });
+    });
+
+    mockState.configuration.set("agentCodeWalk.trigger", "manual");
+    fireConfigurationChange("agentCodeWalk.trigger");
+    await vi.waitFor(async () => {
+      expect(JSON.parse(await fs.readFile(settings, "utf8"))).toEqual({ trigger: "manual" });
+    });
+  });
+
+  it("ignores a change to an unrelated setting", async () => {
+    const settings = path.join(workspace.dataDirectory, "settings.json");
+    activateExtension();
+    await vi.waitFor(async () => {
+      expect(JSON.parse(await fs.readFile(settings, "utf8"))).toEqual({ trigger: "auto" });
+    });
+
+    mockState.configuration.set("agentCodeWalk.trigger", "manual");
+    fireConfigurationChange("agentCodeWalk.initialDepth");
+
+    expect(JSON.parse(await fs.readFile(settings, "utf8"))).toEqual({ trigger: "auto" });
+  });
+
   it("registers every command the manifest contributes", () => {
     activateExtension();
 

@@ -303,6 +303,12 @@ impl CodeWalkService {
         &self.workspace_root
     }
 
+    /// The directory holding baselines, sessions, and the companion's own settings.
+    #[must_use]
+    pub fn storage_root(&self) -> &Path {
+        self.storage.root()
+    }
+
     /// Returns the number of unpublished task baselines for this workspace.
     ///
     /// # Errors

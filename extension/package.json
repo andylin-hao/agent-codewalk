@@ -319,6 +319,19 @@
           "minimum": 1,
           "maximum": 8,
           "description": "%configuration.initialDepth.description%"
+        },
+        "agentCodeWalk.trigger": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "manual"
+          ],
+          "default": "auto",
+          "enumDescriptions": [
+            "%configuration.trigger.auto%",
+            "%configuration.trigger.manual%"
+          ],
+          "description": "%configuration.trigger.description%"
         }
       }
     }

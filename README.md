@@ -234,8 +234,28 @@ See [Security](SECURITY.md) for the threat model and reporting process, and
 
 Most users do not need to change these values.
 
+### When a walkthrough is produced
+
+`agentCodeWalk.trigger` chooses between two ways of working:
+
+- **`auto`** (default) — the agent records a baseline before its first edit and publishes
+  a walkthrough once it has verified the work. Every code change gets one.
+- **`manual`** — the agent publishes only when you ask. Nothing is recorded before an
+  edit unless you asked beforehand; if you ask afterwards, the walkthrough is marked as
+  having a degraded baseline because it can only infer what changed from the repository's
+  current state.
+
+Asking an agent to explain existing code works the same in both modes, since that is
+already a request.
+
+The setting is written to the companion's data directory, which is the only thing the
+editor and an agent-started companion share. The prompt reminder and the stop hook see a
+change immediately; the instructions an agent is given are sent once per session, so
+restart an active session to change how it behaves.
+
 | Setting | Default | Purpose |
 | --- | --- | --- |
+| `agentCodeWalk.trigger` | `auto` | Whether a walkthrough is published after every code change, or only when you ask |
 | `agentCodeWalk.initialDepth` | `2` | Number of nested levels expanded when a walkthrough opens |
 | `agentCodeWalk.notifyOnPublish` | `true` | Show a notification when a new walkthrough arrives |
 | `agentCodeWalk.refreshInterval` | `4000` | Fallback polling interval in milliseconds when file watching is unavailable |

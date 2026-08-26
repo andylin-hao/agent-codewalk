@@ -25,5 +25,8 @@
   "command.expandAll.title": "Expand All Steps",
   "command.collapseAll.title": "Collapse All Steps",
   "command.toggleStep.title": "Expand or Collapse Walkthrough Step",
-  "configuration.initialDepth.description": "How many levels of a nested walkthrough are open when it is first shown. Deeper steps stay one click away."
+  "configuration.initialDepth.description": "How many levels of a nested walkthrough are open when it is first shown. Deeper steps stay one click away.",
+  "configuration.trigger.description": "When an agent should produce a walkthrough. Changing this takes effect for new agent sessions; restart an active one to apply it there.",
+  "configuration.trigger.auto": "Automatic: the agent records a baseline before its first edit and publishes a walkthrough once it has verified the work.",
+  "configuration.trigger.manual": "On request: the agent publishes a walkthrough only when you ask for one. Asking it to explain existing code still works, because that is already a request."
 }

@@ -1,6 +1,9 @@
 use std::{io::Read, process::ExitCode};
 
-use agent_codewalk_mcp::{CodeWalkService, mcp};
+use agent_codewalk_mcp::{
+    CodeWalkService, mcp,
+    settings::{self, Trigger},
+};
 
 fn main() -> ExitCode {
     let arguments: Vec<String> = std::env::args().collect();
@@ -19,10 +22,7 @@ fn main() -> ExitCode {
         .iter()
         .any(|argument| argument == "--prompt-reminder")
     {
-        println!(
-            "Use the agent-codewalk skill. If this task will change files, call begin_task immediately before the first mutation and publish_walkthrough after verification. If it explains code without changing it -- analyze, explain, review, trace, walk through -- call publish_explanation instead, with no begin_task."
-        );
-        return ExitCode::SUCCESS;
+        return prompt_reminder();
     }
 
     match CodeWalkService::from_environment().and_then(|service| mcp::serve(&service)) {
@@ -32,6 +32,25 @@ fn main() -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+/// Reminds the agent what to do with this workspace's trigger.
+///
+/// Under a manual trigger the reminder must not push the agent into recording a baseline
+/// it was never asked for, so it only says what to do when the user does ask.
+fn prompt_reminder() -> ExitCode {
+    let manual = CodeWalkService::from_environment()
+        .is_ok_and(|service| settings::trigger(service.storage_root()) == Trigger::Manual);
+    if manual {
+        println!(
+            "Use the agent-codewalk skill. This workspace publishes walkthroughs on request only: do not call begin_task or publish_walkthrough for a coding task unless the user asks for a walkthrough. If they ask you to analyze, explain, review, trace, or walk through existing code, call publish_explanation."
+        );
+    } else {
+        println!(
+            "Use the agent-codewalk skill. If this task will change files, call begin_task immediately before the first mutation and publish_walkthrough after verification. If it explains code without changing it -- analyze, explain, review, trace, walk through -- call publish_explanation instead, with no begin_task."
+        );
+    }
+    ExitCode::SUCCESS
 }
 
 fn hook_reminder() -> ExitCode {
@@ -52,7 +71,14 @@ fn hook_reminder() -> ExitCode {
         println!("{{}}");
         return ExitCode::SUCCESS;
     }
-    match CodeWalkService::from_environment().and_then(|service| service.pending_task_count()) {
+    // A manual trigger records a baseline only when asked, so any pending one is
+    // deliberate and the agent should not be blocked over it.
+    match CodeWalkService::from_environment().and_then(|service| {
+        if settings::trigger(service.storage_root()) == Trigger::Manual {
+            return Ok(0);
+        }
+        service.pending_task_count()
+    }) {
         Ok(0) => println!("{{}}"),
         Ok(count) => {
             let reason = format!(

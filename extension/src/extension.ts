@@ -6,6 +6,7 @@ import { format, messagesFor } from "./i18n.js";
 import { IntegrationInstaller, VERSION } from "./installer.js";
 import { WalkthroughPlayer } from "./player.js";
 import { SessionStore } from "./storage.js";
+import { configuredTrigger, writeCompanionTrigger } from "./trigger.js";
 import type { ChangeKind, ViewState, WalkthroughKind } from "./types.js";
 import { WalkthroughViewProvider } from "./webview.js";
 
@@ -21,7 +22,16 @@ export function activate(context: vscode.ExtensionContext): void {
   const installer = new IntegrationInstaller(context, output);
   const status = createStatusBarItem();
 
+  // The companion is started by the agent, so the only way an editor setting reaches it
+  // is through the data directory they share. Write it now and whenever it changes.
+  void writeCompanionTrigger(output, configuredTrigger());
+
   context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration("agentCodeWalk.trigger")) {
+        void writeCompanionTrigger(output, configuredTrigger());
+      }
+    }),
     output,
     player,
     provider,
