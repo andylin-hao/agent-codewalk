@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="https://marketplace.visualstudio.com/items?itemName=agent-codewalk.agent-codewalk"><img alt="Visual Studio Marketplace 版本" src="https://img.shields.io/visual-studio-marketplace/v/agent-codewalk.agent-codewalk?style=flat-square&label=VS%20Marketplace"></a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=agent-codewalk.agent-codewalk"><img alt="Visual Studio Marketplace" src="https://img.shields.io/badge/VS%20Marketplace-Install-0098FF?style=flat-square"></a>
   <a href="https://open-vsx.org/extension/agent-codewalk/agent-codewalk"><img alt="Open VSX 版本" src="https://img.shields.io/open-vsx/v/agent-codewalk/agent-codewalk?style=flat-square&label=Open%20VSX"></a>
   <a href="https://github.com/andylin-hao/agent-codewalk/releases/latest"><img alt="最新 GitHub Release" src="https://img.shields.io/github/v/release/andylin-hao/agent-codewalk?style=flat-square"></a>
   <a href="https://github.com/andylin-hao/agent-codewalk/actions/workflows/ci.yml"><img alt="构建状态" src="https://img.shields.io/github/actions/workflow/status/andylin-hao/agent-codewalk/ci.yml?branch=main&style=flat-square&label=build"></a>
