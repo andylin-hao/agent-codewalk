@@ -20,8 +20,15 @@ type ViewMessage =
   | { readonly type: "activateStep"; readonly stepId: string }
   | { readonly type: "setMode"; readonly mode: ExplanationMode };
 
+/**
+ * Renders the walkthrough into every view registered for it.
+ *
+ * The same walkthrough is offered from two places, so more than one view can exist at a
+ * time. They share this provider and the one player behind it, which is what keeps the
+ * two entry points showing the same step rather than drifting into two sessions.
+ */
 export class WalkthroughViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
-  private view: vscode.WebviewView | undefined;
+  private readonly views = new Set<vscode.WebviewView>();
   private readonly stateSubscription: vscode.Disposable;
 
   public constructor(
@@ -34,22 +41,28 @@ export class WalkthroughViewProvider implements vscode.WebviewViewProvider, vsco
   }
 
   public resolveWebviewView(view: vscode.WebviewView): void {
-    this.view = view;
+    this.views.add(view);
+    // A view is disposed when its container is closed or moved. Dropping the reference
+    // keeps a later state update from posting into a webview that no longer exists.
+    view.onDidDispose(() => this.views.delete(view));
     view.webview.options = {
       enableScripts: true,
       localResourceRoots: [this.extensionUri],
     };
     view.webview.html = html(messagesFor(vscode.env.language));
     view.webview.onDidReceiveMessage((message: unknown) => void this.handleMessage(message));
-    this.update(this.player.getState());
+    void view.webview.postMessage({ type: "state", state: this.player.getState() });
   }
 
   public dispose(): void {
     this.stateSubscription.dispose();
+    this.views.clear();
   }
 
   private update(state: ViewState): void {
-    void this.view?.webview.postMessage({ type: "state", state });
+    for (const view of this.views) {
+      void view.webview.postMessage({ type: "state", state });
+    }
   }
 
   private async handleMessage(value: unknown): Promise<void> {

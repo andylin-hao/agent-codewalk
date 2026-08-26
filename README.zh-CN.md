@@ -128,9 +128,20 @@ VSIX 适合离线安装或固定版本，但不会走扩展市场的常规自动
 
 Agent 发布完成后，可以直接点击通知，也可以运行 **Agent CodeWalk: Open Latest Walkthrough**。这两种方式都会自动展开面板，不需要先找到图标。
 
-Agent CodeWalk 显示在右侧辅助侧边栏，与产出讲解的 Agent 放在一起。**VS Code 默认隐藏这个侧边栏**，用 `Ctrl+Alt+B`（macOS 为 `Cmd+Alt+B`）或 **View → Appearance → Secondary Side Bar** 打开后，顶部的切换条里就会出现 Agent CodeWalk 图标。侧边栏没有打开时，本来就不存在放图标的位置，这也是最常见的“找不到图标”的原因。
+Agent CodeWalk 在两侧都提供入口，两者共用同一份会话，因此显示的步骤始终一致：
 
-VS Code 把图标固定在容器所在的位置，两者无法分处两侧。如果更习惯放在左边，把图标拖进活动栏即可，VS Code 会记住这次调整，**View: Reset View Locations** 可以撤销。
+- 左侧**活动栏**，与其他扩展放在一起。
+- 右侧**辅助侧边栏**，与产出讲解的 Agent 放在一起，通常在这里阅读最顺手。
+
+### 打开右侧辅助侧边栏
+
+**VS Code 默认隐藏这个侧边栏**，而隐藏时连切换条都不存在，也就没有放图标的位置——这正是最常见的“找不到图标”的原因。以下任意一种方式都能打开：
+
+- `Ctrl+Alt+B`，macOS 为 `Cmd+Alt+B`。
+- **View → Appearance → Secondary Side Bar**。
+- 在命令面板中运行 **View: Toggle Secondary Side Bar Visibility**。
+
+打开之后，顶部切换条里就会出现 Agent CodeWalk 图标。VS Code 会记住布局调整，如果容器被拖到了别处，运行 **View: Reset View Locations** 即可恢复默认。
 
 | 操作 | 快捷键 | 命令 |
 | --- | --- | --- |

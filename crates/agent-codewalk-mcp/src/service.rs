@@ -828,17 +828,52 @@ fn traverse(
     order
 }
 
+/// How early a file's steps should be read, lowest first.
+///
+/// A reader opens a walkthrough to find out what the change does, and that lives in the
+/// code. Sorting purely by path buries it whenever a manifest or a README sorts earlier,
+/// so each level leads with source, then the configuration that wires it up, then the
+/// documentation that describes it.
+fn reading_rank(path: &str) -> u8 {
+    let lower = path.to_ascii_lowercase();
+    let name = lower.rsplit('/').next().unwrap_or(&lower);
+    let extension = name.rsplit_once('.').map_or("", |(_, suffix)| suffix);
+
+    let documentation = matches!(extension, "md" | "mdx" | "rst" | "adoc" | "txt")
+        || matches!(name, "license" | "notice" | "authors" | "codeowners")
+        || lower.starts_with("docs/");
+    if documentation {
+        return 2;
+    }
+    let configuration = matches!(
+        extension,
+        "json" | "jsonc" | "json5" | "yaml" | "yml" | "toml" | "ini" | "cfg" | "conf" | "lock"
+    ) || matches!(
+        name,
+        "dockerfile" | "makefile" | "gitignore" | "gitattributes"
+    ) || name.starts_with('.')
+        || lower.starts_with(".github/");
+    u8::from(configuration)
+}
+
 fn file_order(steps: &[WalkthroughStep]) -> Vec<String> {
     let children = children_of(steps);
     traverse(&children, &mut |siblings| {
-        let mut positions: Vec<(&str, u32, &str)> = siblings
+        let mut positions: Vec<(u8, &str, u32, &str)> = siblings
             .iter()
-            .map(|step| (step.path.as_str(), step.anchor.start_line, step.id.as_str()))
+            .map(|step| {
+                (
+                    reading_rank(&step.path),
+                    step.path.as_str(),
+                    step.anchor.start_line,
+                    step.id.as_str(),
+                )
+            })
             .collect();
         positions.sort_unstable();
         positions
             .into_iter()
-            .map(|(_, _, identifier)| identifier.to_owned())
+            .map(|(_, _, _, identifier)| identifier.to_owned())
             .collect()
     })
 }
@@ -933,7 +968,8 @@ fn sequence_siblings(
 mod tests {
     use super::{
         MAX_PREVIOUS_TEXT_CHARACTERS, describe_hunks, file_order, flow_order, infer_change_kind,
-        make_anchor, previous_text, resolve_hierarchy, resolve_workspace_root, uncovered_hunks,
+        make_anchor, previous_text, reading_rank, resolve_hierarchy, resolve_workspace_root,
+        uncovered_hunks,
     };
     use crate::model::{
         ChangeHunk, ChangeKind, CodeAnchor, HunkDetail, ResolvedStep, StepInput, WalkthroughStep,
@@ -1115,6 +1151,53 @@ mod tests {
         ];
         let error = resolve_hierarchy(&steps).unwrap_err().to_string();
         assert!(error.contains("same parent"), "{error}");
+    }
+
+    #[test]
+    fn reads_source_before_configuration_and_documentation() {
+        let steps = vec![
+            nested("readme", None, "README.md", 1),
+            nested("manifest", None, "package.json", 1),
+            nested("source", None, "src/lib.rs", 1),
+        ];
+        assert_eq!(file_order(&steps), vec!["source", "manifest", "readme"]);
+    }
+
+    #[test]
+    fn ranks_by_kind_before_path() {
+        // `zzz.rs` sorts last alphabetically and must still come before `aaa.md`.
+        let steps = vec![
+            nested("docs", None, "aaa.md", 1),
+            nested("code", None, "zzz.rs", 1),
+        ];
+        assert_eq!(file_order(&steps), vec!["code", "docs"]);
+    }
+
+    #[test]
+    fn treats_workflows_and_dotfiles_as_configuration() {
+        for path in [
+            ".github/workflows/ci.yml",
+            "Cargo.toml",
+            "pnpm-lock.yaml",
+            "Dockerfile",
+            ".gitignore",
+        ] {
+            assert_eq!(reading_rank(path), 1, "{path} should rank as configuration");
+        }
+    }
+
+    #[test]
+    fn treats_prose_and_the_docs_directory_as_documentation() {
+        for path in ["README.md", "docs/architecture.md", "LICENSE", "notes.txt"] {
+            assert_eq!(reading_rank(path), 2, "{path} should rank as documentation");
+        }
+    }
+
+    #[test]
+    fn treats_anything_else_as_source() {
+        for path in ["src/lib.rs", "extension/src/player.ts", "scripts/build.mjs"] {
+            assert_eq!(reading_rank(path), 0, "{path} should rank as source");
+        }
     }
 
     #[test]

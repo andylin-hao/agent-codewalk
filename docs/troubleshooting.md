@@ -31,13 +31,14 @@ prove that a running agent loaded it; the MCP listing result is the important li
 
 ### The Secondary Side Bar is hidden, so there is no icon to find
 
-Agent CodeWalk appears in the switcher along the top of the Secondary Side Bar, beside the
-agent tools. VS Code keeps that bar hidden until it is opened, and a hidden bar has no
-switcher, so the icon is not merely hard to spot — there is nowhere for it to be.
+Agent CodeWalk appears in the Activity Bar on the left and in the switcher along the top
+of the Secondary Side Bar on the right. VS Code keeps that right-hand bar hidden until it
+is opened, and a hidden bar has no switcher, so the icon there is not merely hard to spot
+— there is nowhere for it to be.
 
 Press `Ctrl+Alt+B` (`Cmd+Alt+B` on macOS) or run **View: Toggle Secondary Side Bar
-Visibility**. Running **Agent CodeWalk: Open Latest Walkthrough** also reveals it, which
-is the faster check that the extension loaded at all.
+Visibility**. Running **Agent CodeWalk: Open Latest Walkthrough** opens whichever panel is
+available, which is the faster check that the extension loaded at all.
 
 VS Code remembers layout changes, so run **View: Reset View Locations** if the container
 was dragged elsewhere and you want it back on the right.

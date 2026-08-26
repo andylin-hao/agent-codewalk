@@ -160,18 +160,29 @@ chat and do not create an unnecessary walkthrough.
 ## Read a walkthrough
 
 Accept the publication notification, or run **Agent CodeWalk: Open Latest Walkthrough**.
-Either opens the walkthrough and reveals the panel, so neither depends on finding an icon
+Either opens the walkthrough and reveals a panel, so neither depends on finding an icon
 first.
 
-Agent CodeWalk lives in the Secondary Side Bar, beside the agent that produced the
-walkthrough. **VS Code keeps that bar hidden until you open it** — `Ctrl+Alt+B`
-(`Cmd+Alt+B` on macOS), or **View → Appearance → Secondary Side Bar** — and the icon then
-appears in the switcher along its top edge. Until the bar is open there is no strip for
-any icon to be in, which is the usual reason it seems to be missing.
+Agent CodeWalk is offered from both sides, and the two show the same step because they
+share one session:
 
-VS Code fixes a container's icon to wherever that container lives, so the two cannot be
-split across sides. Prefer it on the left? Drag the icon into the Activity Bar; VS Code
-remembers the move, and **View: Reset View Locations** undoes it.
+- The **Activity Bar** on the left, beside your other extensions.
+- The **Secondary Side Bar** on the right, beside the agent that produced the walkthrough,
+  which is where a walkthrough is usually most useful.
+
+### Opening the Secondary Side Bar
+
+**VS Code keeps that bar hidden until you open it**, and a hidden bar has no container
+switcher, so there is no strip for any icon to be in. That is the usual reason the icon
+seems to be missing. Any of these opens it:
+
+- `Ctrl+Alt+B`, or `Cmd+Alt+B` on macOS.
+- **View → Appearance → Secondary Side Bar**.
+- **View: Toggle Secondary Side Bar Visibility** from the Command Palette.
+
+Once it is open, the Agent CodeWalk icon appears in the switcher along its top edge.
+VS Code remembers layout changes, so **View: Reset View Locations** restores the defaults
+if a container was dragged elsewhere.
 
 | Action | Shortcut | Command |
 | --- | --- | --- |

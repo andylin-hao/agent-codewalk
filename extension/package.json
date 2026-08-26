@@ -59,6 +59,13 @@
           "title": "%view.container.title%",
           "icon": "media/icon.svg"
         }
+      ],
+      "activitybar": [
+        {
+          "id": "agentCodeWalkPrimary",
+          "title": "%view.container.title%",
+          "icon": "media/icon.svg"
+        }
       ]
     },
     "views": {
@@ -68,11 +75,22 @@
           "id": "agentCodeWalk.walkthrough",
           "name": "%view.walkthrough.name%"
         }
+      ],
+      "agentCodeWalkPrimary": [
+        {
+          "type": "webview",
+          "id": "agentCodeWalk.walkthroughPrimary",
+          "name": "%view.walkthrough.name%"
+        }
       ]
     },
     "viewsWelcome": [
       {
         "view": "agentCodeWalk.walkthrough",
+        "contents": "%view.welcome%"
+      },
+      {
+        "view": "agentCodeWalk.walkthroughPrimary",
         "contents": "%view.welcome%"
       }
     ],

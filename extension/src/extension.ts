@@ -30,7 +30,10 @@ export function activate(context: vscode.ExtensionContext): void {
     diffs.register(),
     contextDecoration,
     ...Object.values(decorations),
+    // The same provider serves both entry points, so whichever the reader opens shows the
+    // step the other one is on.
     vscode.window.registerWebviewViewProvider("agentCodeWalk.walkthrough", provider),
+    vscode.window.registerWebviewViewProvider("agentCodeWalk.walkthroughPrimary", provider),
     vscode.languages.registerCodeLensProvider({ scheme: "file" }, lenses),
     player.onDidChangeState((state) => {
       updateStatusBar(status, state);
@@ -48,16 +51,14 @@ export function activate(context: vscode.ExtensionContext): void {
       );
     }),
     command("agentCodeWalk.openLatest", async () => {
-      // Revealing the view is a convenience, not the command. An editor whose build
-      // cannot focus this container must still play the walkthrough rather than failing
-      // the whole command with an error about a view the reader never asked for.
-      try {
-        await vscode.commands.executeCommand("agentCodeWalk.walkthrough.focus");
-      } catch (error) {
-        output.warn(
-          `Cannot reveal the Agent CodeWalk view: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
+      // Revealing a view is a convenience, not the command, and either entry point will
+      // do. The Secondary Side Bar is tried first because that is where the walkthrough
+      // belongs; an editor that can host neither must still play the walkthrough rather
+      // than failing with an error about a view the reader never asked for.
+      await reveal(output, [
+        "agentCodeWalk.walkthrough.focus",
+        "agentCodeWalk.walkthroughPrimary.focus",
+      ]);
       await player.openLatest();
     }),
     command("agentCodeWalk.previous", () => player.previous()),
@@ -96,6 +97,27 @@ export function activate(context: vscode.ExtensionContext): void {
     command("agentCodeWalk.uninstall", () => installer.uninstall()),
   );
   player.start();
+}
+
+/**
+ * Focuses the first view that will accept it.
+ *
+ * @param output Receives a note when no view could be revealed.
+ * @param commands Focus commands to try, most preferred first.
+ */
+async function reveal(
+  output: vscode.LogOutputChannel,
+  commands: readonly string[],
+): Promise<void> {
+  for (const identifier of commands) {
+    try {
+      await vscode.commands.executeCommand(identifier);
+      return;
+    } catch {
+      continue;
+    }
+  }
+  output.warn("No Agent CodeWalk view could be revealed; playing the walkthrough anyway.");
 }
 
 interface StepPick extends vscode.QuickPickItem {

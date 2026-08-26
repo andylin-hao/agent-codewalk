@@ -103,16 +103,18 @@ that exists now.
 
 ## Navigate
 
-Agent CodeWalk lives in the Secondary Side Bar, beside the agent that produced the
-walkthrough. **VS Code keeps that bar hidden until you open it**, so open it first with
-`Ctrl+Alt+B` (`Cmd+Alt+B` on macOS) and the Agent CodeWalk icon appears in the switcher
-along its top edge.
+Agent CodeWalk is reachable from either side, showing the same step in both:
 
-You never have to find it, though: accept the publication notification, or run **Agent
-CodeWalk: Open Latest Walkthrough**. Either reveals the bar for you.
+- **Activity Bar**, on the left, beside your other extensions.
+- **Secondary Side Bar**, on the right, beside the agent that produced the walkthrough.
 
-Prefer it on the left? Drag the icon into the Activity Bar. VS Code remembers the move,
-and **View: Reset View Locations** undoes it.
+**VS Code keeps the Secondary Side Bar hidden until you open it**, and a hidden bar has no
+icons at all. Open it with `Ctrl+Alt+B` (`Cmd+Alt+B` on macOS), or **View → Appearance →
+Secondary Side Bar**, and the Agent CodeWalk icon appears in the switcher along its top
+edge.
+
+You never have to find an icon, though: accept the publication notification, or run
+**Agent CodeWalk: Open Latest Walkthrough**. Either opens a panel for you.
 
 | Action | Shortcut |
 | --- | --- |

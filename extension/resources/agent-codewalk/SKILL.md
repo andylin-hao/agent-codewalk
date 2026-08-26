@@ -56,6 +56,10 @@ A step is what a colleague would point at while explaining out loud: one block, 
 - **Split rather than widen.** A long function becomes a step for the guard clauses, a step for the branch that carries the logic, and a step for what it returns.
 - **Never stretch a range to satisfy coverage.** If a changed hunk falls outside every natural block, give it its own step instead of growing a neighboring one until it swallows the hunk.
 - **Title the idea, not the location.** "Reject an expired token" beats "Update auth.ts".
+- **Lead with the code.** A reader opens a walkthrough to learn what the change does, and
+  that lives in the source. Keep configuration and documentation steps out of the top
+  level unless the task was about them; publication already orders siblings so source
+  comes before configuration, and configuration before documentation.
 
 ## Writing the explanation
 

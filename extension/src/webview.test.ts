@@ -79,13 +79,20 @@ interface FakeView {
   readonly received: ((message: unknown) => void)[];
   html: string;
   options: unknown;
+  /** Fires the disposal listeners, as VS Code does when a container closes. */
+  readonly dispose: () => void;
   readonly view: vscode.WebviewView;
 }
 
 function createFakeView(): FakeView {
   const posted: unknown[] = [];
   const received: ((message: unknown) => void)[] = [];
+  const disposed: (() => void)[] = [];
   const view = {
+    onDidDispose: (listener: () => void) => {
+      disposed.push(listener);
+      return { dispose: () => undefined };
+    },
     webview: {
       set options(value: unknown) {
         fake.options = value;
@@ -108,13 +115,22 @@ function createFakeView(): FakeView {
     received,
     html: "",
     options: undefined,
+    dispose: () => {
+      for (const listener of disposed) {
+        listener();
+      }
+    },
     view: view as unknown as vscode.WebviewView,
   };
   return fake;
 }
 
 /** Records the navigation a webview message triggers. */
-function createPlayerStub(): { player: WalkthroughPlayer; calls: string[] } {
+function createPlayerStub(): {
+  player: WalkthroughPlayer;
+  calls: string[];
+  emitter: vscode.EventEmitter<ViewState>;
+} {
   const calls: string[] = [];
   const emitter = new vscode.EventEmitter<ViewState>();
   const player = {
@@ -132,12 +148,45 @@ function createPlayerStub(): { player: WalkthroughPlayer; calls: string[] } {
     calls.push(value);
     return Promise.resolve();
   }
-  return { player, calls };
+  return { player, calls, emitter };
 }
 
 describe("WalkthroughViewProvider", () => {
   beforeEach(() => {
     resetVscodeMock();
+  });
+
+  it("keeps both entry points on the same step", () => {
+    // The Secondary Side Bar and the Activity Bar share one provider, so a state change
+    // has to reach every open view or the two would show different steps.
+    const { player, emitter } = createPlayerStub();
+    const provider = new WalkthroughViewProvider(vscode.Uri.file("/extension"), player);
+    const secondary = createFakeView();
+    const primary = createFakeView();
+
+    provider.resolveWebviewView(secondary.view);
+    provider.resolveWebviewView(primary.view);
+    emitter.fire({ stepCount: 1, mode: "graph" } as ViewState);
+
+    expect(secondary.posted).toHaveLength(2);
+    expect(primary.posted).toHaveLength(2);
+    provider.dispose();
+  });
+
+  it("stops posting into a view that was closed", () => {
+    const { player, emitter } = createPlayerStub();
+    const provider = new WalkthroughViewProvider(vscode.Uri.file("/extension"), player);
+    const closed = createFakeView();
+    const open = createFakeView();
+
+    provider.resolveWebviewView(closed.view);
+    provider.resolveWebviewView(open.view);
+    closed.dispose();
+    emitter.fire({ stepCount: 1, mode: "graph" } as ViewState);
+
+    expect(closed.posted).toHaveLength(1);
+    expect(open.posted).toHaveLength(2);
+    provider.dispose();
   });
 
   it("renders the page and sends the current state on first resolve", () => {

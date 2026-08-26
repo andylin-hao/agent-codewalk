@@ -6,12 +6,16 @@ GitHub Releases.
 
 ## Unreleased
 
-- Open Agent CodeWalk from the Secondary Side Bar, beside the agent that produced the
-  walkthrough. VS Code keeps that bar hidden until it is opened, and a hidden bar has no
-  container switcher, so on a fresh install the icon appeared to be missing entirely. The
-  documentation now says so and gives the shortcut that reveals it, and both the
-  publication notification and **Open Latest Walkthrough** open the bar for you, so
-  neither depends on finding an icon first.
+- Offer Agent CodeWalk from both the Activity Bar and the Secondary Side Bar. The two
+  share one session and show the same step, so the walkthrough stays beside the agent that
+  produced it without that being the only place it can be found. VS Code keeps the
+  Secondary Side Bar hidden until it is opened, and a hidden bar has no container
+  switcher, so an install offering only that entry appeared to have failed; the
+  documentation now says so and gives the shortcut that opens it.
+- Order steps so source comes before configuration, and configuration before
+  documentation. Sorting purely by path buried the code behind whatever manifest or
+  README happened to sort earlier, which is the opposite of what a reader opens a
+  walkthrough for.
 - Keep **Open Latest Walkthrough** working when the view cannot be revealed. Focusing the
   container was attempted first and thrown from, so on a build that cannot host it the
   command reported an error instead of playing the walkthrough.
