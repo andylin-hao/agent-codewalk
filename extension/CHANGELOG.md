@@ -4,7 +4,7 @@ Notable user-visible changes are listed here. Versions follow the extension mani
 same release artifacts are published to the Visual Studio Marketplace, Open VSX, and
 GitHub Releases.
 
-## Unreleased
+## 0.8.0
 
 - Add a `linux-arm64` package. ARM Linux had no build at all, and installing any other
   package left a companion binary that could not execute. It is cross-compiled on an x64
