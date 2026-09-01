@@ -6,10 +6,10 @@ import { randomUUID } from "node:crypto";
 import * as vscode from "vscode";
 
 import {
-  removeClaudeStopHook,
+  removeAgentHooks,
   removeCodexConfiguration as removeCodexConfigurationText,
   removeJsonPropertyIfOwned,
-  upsertClaudeStopHook,
+  upsertAgentHooks,
   upsertCodexConfiguration,
   upsertJsonProperty,
 } from "./config-edits.js";
@@ -19,7 +19,7 @@ import { withFileTransaction } from "./file-transaction.js";
 
 const PRODUCT = "agent-codewalk";
 /** The release this extension ships, and the companion version it installs. */
-export const VERSION = "0.7.4";
+export const VERSION = "0.7.5";
 
 type AgentName = "Codex" | "Claude Code" | "OpenCode";
 
@@ -160,12 +160,16 @@ export class IntegrationInstaller {
       }
     }
     await removeCodexConfiguration(path.join(this.home, ".codex", "config.toml"));
+    await removeAgentHookFile(
+      path.join(this.home, ".codex", "hooks.json"),
+      manifest.companionPath,
+    );
     await removeJsonConfiguration(
       path.join(this.home, ".claude.json"),
       ["mcpServers", PRODUCT],
       manifest.companionPath,
     );
-    await removeClaudeHook(
+    await removeAgentHookFile(
       path.join(this.home, ".claude", "settings.json"),
       manifest.companionPath,
     );
@@ -258,6 +262,9 @@ export async function detectedTargets(home: string): Promise<AgentTarget[]> {
       executable: "codex",
       configPath: path.join(home, ".codex", "config.toml"),
       skillPath: path.join(home, ".agents", "skills", PRODUCT),
+      // Codex loads hooks from this file. Defining them in config.toml as well makes it
+      // read two copies and warn about the duplicate representation.
+      hookPath: path.join(home, ".codex", "hooks.json"),
       detectPaths: [path.join(home, ".codex")],
     },
     {
@@ -301,6 +308,9 @@ async function configureTarget(target: AgentTarget, companionPath: string): Prom
   switch (target.name) {
     case "Codex":
       await configureCodex(target.configPath, companionPath);
+      if (target.hookPath !== undefined) {
+        await configureAgentHooks(target.hookPath, companionPath);
+      }
       break;
     case "Claude Code":
       await updateJsonConfiguration(target.configPath, ["mcpServers", PRODUCT], {
@@ -309,7 +319,7 @@ async function configureTarget(target: AgentTarget, companionPath: string): Prom
         args: [],
       });
       if (target.hookPath !== undefined) {
-        await configureClaudeHook(target.hookPath, companionPath);
+        await configureAgentHooks(target.hookPath, companionPath);
       }
       break;
     case "OpenCode":
@@ -390,7 +400,7 @@ async function configureCodex(configPath: string, companionPath: string): Promis
   const existing = await readOptional(configPath);
   await backupAndWrite(
     configPath,
-    upsertCodexConfiguration(existing, companionPath, process.platform),
+    upsertCodexConfiguration(existing, companionPath),
   );
 }
 
@@ -402,20 +412,20 @@ async function removeCodexConfiguration(configPath: string): Promise<void> {
   }
 }
 
-async function configureClaudeHook(configPath: string, companionPath: string): Promise<void> {
+async function configureAgentHooks(configPath: string, companionPath: string): Promise<void> {
   const existing = await readOptional(configPath);
   await backupAndWrite(
     configPath,
-    upsertClaudeStopHook(existing, companionPath, process.platform),
+    upsertAgentHooks(existing, companionPath, process.platform),
   );
 }
 
-async function removeClaudeHook(configPath: string, companionPath: string): Promise<void> {
+async function removeAgentHookFile(configPath: string, companionPath: string): Promise<void> {
   if (!(await exists(configPath))) {
     return;
   }
   const source = await fs.readFile(configPath, "utf8");
-  const updated = removeClaudeStopHook(source, companionPath);
+  const updated = removeAgentHooks(source, companionPath);
   if (updated !== undefined) {
     await backupAndWrite(configPath, updated);
   }

@@ -4,6 +4,13 @@ Notable user-visible changes are listed here. Versions follow the extension mani
 same release artifacts are published to the Visual Studio Marketplace, Open VSX, and
 GitHub Releases.
 
+## Unreleased
+
+- Write Codex hooks to `~/.codex/hooks.json` instead of `config.toml`. Codex reads hooks
+  from that file, so declaring them in both places made it load two copies and warn about
+  the duplicate representation. `config.toml` now carries the MCP server entry alone, and
+  removing the integration cleans both files.
+
 ## 0.7.4
 
 - Choose when a walkthrough is produced with `agentCodeWalk.trigger`. The default records

@@ -2,7 +2,7 @@
   "name": "agent-codewalk",
   "displayName": "%extension.displayName%",
   "description": "%extension.description%",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "publisher": "agent-codewalk",
   "license": "MIT",
   "icon": "media/icon.png",

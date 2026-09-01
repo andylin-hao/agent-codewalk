@@ -147,8 +147,14 @@ describe("IntegrationInstaller.setup", () => {
 
     const config = await readFile(".codex", "config.toml");
     expect(config).toContain("[mcp_servers.agent-codewalk]");
-    expect(config).toContain("[[hooks.Stop]]");
     expect(config).toContain("agent-codewalk managed block");
+    // Codex loads hooks from hooks.json; declaring them in config.toml as well makes it
+    // read two copies and warn about the duplicate representation.
+    expect(config).not.toContain("hooks");
+
+    const hooks = await readFile(".codex", "hooks.json");
+    expect(hooks).toContain("--hook-reminder");
+    expect(hooks).toContain("--prompt-reminder");
     expect(
       await exists(path.join(harness.home, ".agents", "skills", "agent-codewalk", "SKILL.md")),
     ).toBe(true);
@@ -248,6 +254,25 @@ describe("IntegrationInstaller.uninstall", () => {
     expect(
       await exists(path.join(harness.home, ".claude", "skills", "agent-codewalk")),
     ).toBe(false);
+  });
+
+  it("removes the Codex hooks it added, and nothing else", async () => {
+    await createAgentDirectories(".codex");
+    await fs.writeFile(
+      path.join(harness.home, ".codex", "hooks.json"),
+      '{"hooks":{"Stop":[{"hooks":[{"command":"someone-else"}]}]}}',
+      "utf8",
+    );
+    mockState.informationResponses.push("Install", undefined);
+    await harness.installer.setup();
+    mockState.warningResponses.push("Remove");
+
+    await harness.installer.uninstall();
+
+    const hooks = await readFile(".codex", "hooks.json");
+    expect(hooks).toContain("someone-else");
+    expect(hooks).not.toContain("--hook-reminder");
+    expect(hooks).not.toContain("--prompt-reminder");
   });
 
   it("keeps everything when the user declines", async () => {

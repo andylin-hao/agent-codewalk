@@ -5,14 +5,15 @@ const TOML_START = "# >>> agent-codewalk managed block >>>";
 const TOML_END = "# <<< agent-codewalk managed block <<<";
 const FORMATTING = { insertSpaces: true, tabSize: 2, eol: "\n" } as const;
 
-export function upsertCodexConfiguration(
-  existing: string,
-  companionPath: string,
-  platform: NodeJS.Platform,
-): string {
-  const command = hookShellCommand(companionPath, platform, "--hook-reminder");
-  const promptCommand = hookShellCommand(companionPath, platform, "--prompt-reminder");
-  const block = `${TOML_START}\n[mcp_servers.${PRODUCT}]\ncommand = ${JSON.stringify(companionPath)}\nargs = []\n\n[[hooks.UserPromptSubmit]]\n\n[[hooks.UserPromptSubmit.hooks]]\ntype = "command"\ncommand = ${JSON.stringify(promptCommand)}\ntimeout = 5\nstatusMessage = "Loading Agent CodeWalk workflow"\n\n[[hooks.Stop]]\n\n[[hooks.Stop.hooks]]\ntype = "command"\ncommand = ${JSON.stringify(command)}\ntimeout = 5\nstatusMessage = "Checking Agent CodeWalk publication"\n${TOML_END}`;
+/**
+ * Registers the companion as an MCP server in Codex's TOML configuration.
+ *
+ * Hooks are deliberately not written here. Codex reads them from `hooks.json`, and
+ * defining them in both places makes it load two copies and warn about the duplicate
+ * representation, so this file carries the server entry alone.
+ */
+export function upsertCodexConfiguration(existing: string, companionPath: string): string {
+  const block = `${TOML_START}\n[mcp_servers.${PRODUCT}]\ncommand = ${JSON.stringify(companionPath)}\nargs = []\n${TOML_END}`;
   const start = existing.indexOf(TOML_START);
   const end = existing.indexOf(TOML_END);
   if (start >= 0 && end >= start) {
@@ -62,7 +63,14 @@ export function removeJsonPropertyIfOwned(
   );
 }
 
-export function upsertClaudeStopHook(
+/**
+ * Adds both companion hooks to an agent's hook file.
+ *
+ * Codex and Claude Code use the same shape, so one writer serves both. Any existing
+ * entry pointing at the companion is dropped first, which makes reinstalling replace a
+ * stale path rather than accumulate one hook per version ever installed.
+ */
+export function upsertAgentHooks(
   existing: string,
   companionPath: string,
   platform: NodeJS.Platform,
@@ -107,7 +115,8 @@ export function upsertClaudeStopHook(
   );
 }
 
-export function removeClaudeStopHook(
+/** Removes both companion hooks, leaving anything this tool does not own. */
+export function removeAgentHooks(
   existing: string,
   companionPath: string,
 ): string | undefined {
