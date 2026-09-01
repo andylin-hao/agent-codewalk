@@ -4,8 +4,12 @@ Notable user-visible changes are listed here. Versions follow the extension mani
 same release artifacts are published to the Visual Studio Marketplace, Open VSX, and
 GitHub Releases.
 
-## Unreleased
+## 0.7.5
 
+- Replace the Visual Studio Marketplace version badge. shields.io retired that whole
+  badge family, so it rendered the literal text "retired badge" everywhere it appeared,
+  including on the Marketplace listing it linked to. A static install badge takes its
+  place; Open VSX and the release badge beside it still report versions.
 - Write Codex hooks to `~/.codex/hooks.json` instead of `config.toml`. Codex reads hooks
   from that file, so declaring them in both places made it load two copies and warn about
   the duplicate representation. `config.toml` now carries the MCP server entry alone, and
