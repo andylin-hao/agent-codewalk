@@ -1,10 +1,10 @@
-import { promises as fs } from "node:fs";
+import { promises as fs, readFileSync } from "node:fs";
 import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
 
-import { IntegrationInstaller, detectedTargets } from "./installer.js";
+import { IntegrationInstaller, companionTarget, detectedTargets } from "./installer.js";
 import { createTemporaryWorkspace } from "./test/fixtures.js";
 import { mockState, resetVscodeMock } from "./test/vscode-mock.js";
 
@@ -226,10 +226,59 @@ describe("IntegrationInstaller.setup", () => {
     expect(JSON.stringify(openCode)).toContain("agent-codewalk");
   });
 
+  it("prefers the build for this machine over a flat one", async () => {
+    // The universal package ships every build under bin/<target>; a platform package
+    // ships one at the root. Both must install, and the targeted one must win.
+    const target = companionTarget();
+    expect(target).toBeDefined();
+    const targeted = path.join(harness.extensionPath, "bin", target ?? "", "agent-codewalk-mcp");
+    await fs.mkdir(path.dirname(targeted), { recursive: true });
+    await fs.writeFile(targeted, "#!/bin/sh\n# targeted\n", { mode: 0o755 });
+    await createAgentDirectories(".codex");
+    mockState.informationResponses.push("Install", undefined);
+
+    await harness.installer.setup();
+
+    const installed = await fs.readFile(
+      path.join(harness.dataDirectory, "bin", installedVersion(), "agent-codewalk-mcp"),
+      "utf8",
+    );
+    expect(installed).toContain("targeted");
+  });
+
   it("reports a missing companion instead of writing a broken configuration", async () => {
     await createAgentDirectories(".codex");
     await fs.rm(path.join(harness.extensionPath, "bin", "agent-codewalk-mcp"));
     await expect(harness.installer.setup()).rejects.toThrow(/No MCP companion executable/u);
+  });
+});
+
+/** The version the installer stages under, read from the manifest it is synced with. */
+function installedVersion(): string {
+  return (JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
+    version: string;
+  }).version;
+}
+
+describe("companionTarget", () => {
+  it.each([
+    ["darwin", "arm64", "darwin-arm64"],
+    ["darwin", "x64", "darwin-x64"],
+    ["linux", "arm64", "linux-arm64"],
+    ["linux", "x64", "linux-x64"],
+    ["win32", "x64", "win32-x64"],
+  ])("names the %s-%s build", (platform, arch, expected) => {
+    expect(companionTarget(platform as NodeJS.Platform, arch)).toBe(expected);
+  });
+
+  it.each([
+    ["linux", "arm"],
+    ["win32", "arm64"],
+    ["freebsd", "x64"],
+  ])("has nothing published for %s-%s", (platform, arch) => {
+    // Reported as its own problem, so setup can say no build exists rather than that a
+    // file is missing.
+    expect(companionTarget(platform as NodeJS.Platform, arch)).toBeUndefined();
   });
 });
 

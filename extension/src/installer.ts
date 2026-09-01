@@ -19,7 +19,7 @@ import { withFileTransaction } from "./file-transaction.js";
 
 const PRODUCT = "agent-codewalk";
 /** The release this extension ships, and the companion version it installs. */
-export const VERSION = "0.7.5";
+export const VERSION = "0.8.0";
 
 type AgentName = "Codex" | "Claude Code" | "OpenCode";
 
@@ -237,8 +237,14 @@ export class IntegrationInstaller {
       .getConfiguration("agentCodeWalk")
       .get<string>("companionPath", "")
       .trim();
+    const target = companionTarget();
     const candidates = [
       configured,
+      // The universal package keeps one build per target; a platform package keeps the
+      // single build it was made for at the root.
+      ...(target === undefined
+        ? []
+        : [path.join(this.context.extensionPath, "bin", target, executableName())]),
       path.join(this.context.extensionPath, "bin", executableName()),
       path.resolve(this.context.extensionPath, "..", "target", "release", executableName()),
       path.resolve(this.context.extensionPath, "..", "target", "debug", executableName()),
@@ -249,7 +255,9 @@ export class IntegrationInstaller {
       }
     }
     throw new Error(
-      "No MCP companion executable was found. Build it with `cargo build --release` or set agentCodeWalk.companionPath.",
+      target === undefined
+        ? `Agent CodeWalk publishes no companion for ${process.platform}-${process.arch}. Build it with \`cargo build --release\` or set agentCodeWalk.companionPath.`
+        : "No MCP companion executable was found. Build it with `cargo build --release` or set agentCodeWalk.companionPath.",
     );
   }
 }
@@ -569,6 +577,31 @@ async function exists(target: string): Promise<boolean> {
 
 function executableName(): string {
   return process.platform === "win32" ? "agent-codewalk-mcp.exe" : "agent-codewalk-mcp";
+}
+
+/**
+ * The build this machine needs, named as the release packages name it.
+ *
+ * A platform package ships one binary at the root of `bin`, while the universal package
+ * ships every build under `bin/<target>`. Returning undefined says there is no build for
+ * this machine at all, which is worth reporting as itself rather than as a missing file.
+ *
+ * @param platform As `process.platform` reports it.
+ * @param arch As `process.arch` reports it.
+ * @returns The target directory name, or undefined when nothing is published for it.
+ */
+export function companionTarget(
+  platform: NodeJS.Platform = process.platform,
+  arch: string = process.arch,
+): string | undefined {
+  const published: Record<string, string> = {
+    "darwin:arm64": "darwin-arm64",
+    "darwin:x64": "darwin-x64",
+    "linux:arm64": "linux-arm64",
+    "linux:x64": "linux-x64",
+    "win32:x64": "win32-x64",
+  };
+  return published[`${platform}:${arch}`];
 }
 
 function isMissing(error: unknown): boolean {

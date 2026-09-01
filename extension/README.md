@@ -63,9 +63,10 @@ cursor --install-extension agent-codewalk.agent-codewalk
 codium --install-extension agent-codewalk.agent-codewalk
 ```
 
-Offline and pinned packages for Linux x64, Windows x64, macOS Intel, and macOS Apple
-silicon are attached to every [GitHub release](https://github.com/andylin-hao/agent-codewalk/releases),
-together with SHA-256 checksums.
+Offline and pinned packages for Linux x64 and arm64, Windows x64, macOS Intel, and macOS
+Apple silicon are attached to every
+[GitHub release](https://github.com/andylin-hao/agent-codewalk/releases), together with a
+universal package that suits any of them and SHA-256 checksums.
 
 ## One-time agent setup
 

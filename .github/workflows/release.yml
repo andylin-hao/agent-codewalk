@@ -18,6 +18,12 @@ jobs:
         include:
           - os: ubuntu-24.04
             target: linux-x64
+          # Cross-compiled rather than run on an ARM runner, so the build cannot stall on
+          # runner availability the way the retired Intel macOS image did.
+          - os: ubuntu-24.04
+            target: linux-arm64
+            rust-target: aarch64-unknown-linux-gnu
+            apt: gcc-aarch64-linux-gnu
           - os: windows-2022
             target: win32-x64
           # GitHub retired the macOS 13 Intel image, and a job asking for it queues
@@ -37,12 +43,19 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.rust-target }}
+      - name: Install the cross linker
+        if: ${{ matrix.apt != '' }}
+        run: sudo apt-get update && sudo apt-get install -y ${{ matrix.apt }}
       - run: corepack enable
       - run: corepack pnpm install --frozen-lockfile
       - name: Verify the version is single-sourced
         run: node scripts/sync-version.mjs --check
       - name: Build the companion
         shell: bash
+        # Naming the linker is harmless for the targets that do not need one; cargo reads
+        # the variable only while building that triple.
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
         run: |
           if [[ -n "${{ matrix.rust-target }}" ]]; then
             cargo build --release --locked --target "${{ matrix.rust-target }}"
@@ -61,9 +74,53 @@ jobs:
           name: agent-codewalk-${{ matrix.target }}
           path: extension/agent-codewalk-${{ matrix.target }}.vsix
           if-no-files-found: error
+      # The universal package needs the binaries themselves, not the packages they were
+      # put into, so each build is kept separately for it to collect.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: companion-${{ matrix.target }}
+          path: extension/bin/
+          if-no-files-found: error
+
+  universal:
+    needs: package
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - run: corepack pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: companion-*
+          path: companions
+      - name: Collect every build under its target
+        shell: bash
+        run: |
+          set -euo pipefail
+          for directory in companions/companion-*; do
+            target="${directory#companions/companion-}"
+            mkdir -p "extension/bin/$target"
+            cp "$directory"/* "extension/bin/$target/"
+            chmod +x "extension/bin/$target"/* || true
+          done
+          ls -R extension/bin
+      - name: Build the universal VSIX
+        shell: bash
+        run: |
+          cd extension
+          corepack pnpm build
+          corepack pnpm exec vsce package --no-dependencies --out agent-codewalk-universal.vsix
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agent-codewalk-universal
+          path: extension/agent-codewalk-universal.vsix
+          if-no-files-found: error
 
   publish:
-    needs: package
+    needs: [package, universal]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -72,6 +129,9 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
+          # Only the packages. The raw companion builds are an input to the universal
+          # package and have no place on the release.
+          pattern: agent-codewalk-*
           path: artifacts
           merge-multiple: true
       - name: Create checksums

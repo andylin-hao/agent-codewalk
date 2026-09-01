@@ -16,9 +16,15 @@ runtime download mechanism; Agent CodeWalk intentionally has no runtime network 
 | Target | GitHub asset | Typical host |
 | --- | --- | --- |
 | `linux-x64` | `agent-codewalk-linux-x64.vsix` | Linux desktop, WSL, most Remote SSH hosts |
+| `linux-arm64` | `agent-codewalk-linux-arm64.vsix` | ARM Linux desktop and Remote SSH hosts |
 | `win32-x64` | `agent-codewalk-win32-x64.vsix` | Windows x64 |
 | `darwin-x64` | `agent-codewalk-darwin-x64.vsix` | Intel macOS |
 | `darwin-arm64` | `agent-codewalk-darwin-arm64.vsix` | Apple silicon macOS |
+| none | `agent-codewalk-universal.vsix` | Any of the above, chosen at setup |
+
+Publish the platform packages to the registries and leave the universal one to the GitHub
+release. Both stores serve the right platform package automatically, so a universal
+upload would make every user download four builds to run one.
 
 The GitHub release also contains `SHA256SUMS`. GitHub Actions attaches build provenance to
 the VSIX files before the release is published.

@@ -66,12 +66,14 @@ links to evidence in the release pull request.
 
 - [ ] The release commit uses Conventional Commits and contains `Signed-off-by:`.
 - [ ] The annotated `v<version>` tag is signed and points at that commit.
-- [ ] The tag-triggered release workflow is green and builds all four targets:
+- [ ] The tag-triggered release workflow is green and builds every target:
   - [ ] `linux-x64`
+  - [ ] `linux-arm64`
   - [ ] `win32-x64`
   - [ ] `darwin-x64`
   - [ ] `darwin-arm64`
-- [ ] The GitHub release contains all four VSIX files and `SHA256SUMS`.
+- [ ] The GitHub release contains every platform VSIX, the universal VSIX, and `SHA256SUMS`.
+- [ ] The universal package installs on a machine whose platform build it also carries.
 - [ ] GitHub build provenance covers every VSIX.
 - [ ] Downloaded artifacts pass `sha256sum -c SHA256SUMS`.
 - [ ] Generated release notes are edited for clarity and contain no secrets or internal
@@ -82,15 +84,17 @@ links to evidence in the release pull request.
 Uploads are manual. Download the released packages rather than rebuilding, so all three
 channels carry byte-identical files:
 
-- [ ] `gh release download v<version> --pattern "*.vsix"` retrieved all four packages.
+- [ ] `gh release download v<version> --pattern "*.vsix"` retrieved every package.
 - [ ] Every platform package was uploaded, not just the one built on the release machine.
+  The universal package belongs to the GitHub release only; both stores serve the right
+  platform package on their own.
   A registry carrying a single package leaves the other platforms with a companion binary
   that cannot run.
 
 ### Visual Studio Marketplace
 
 - [ ] The upload used the exact GitHub VSIX artifacts, not a second build.
-- [ ] The listing shows the new version for all four supported targets.
+- [ ] The listing shows the new version for every supported target.
 - [ ] The logo, product figure, English copy, links, changelog, and license render correctly.
 - [ ] Searching **Agent CodeWalk** finds publisher `agent-codewalk`.
 - [ ] A clean VS Code profile installs `agent-codewalk.agent-codewalk` from the listing.
@@ -98,7 +102,7 @@ channels carry byte-identical files:
 ### Open VSX
 
 - [ ] The upload used the exact GitHub VSIX artifacts.
-- [ ] The owned `agent-codewalk` namespace shows the new version for all four targets.
+- [ ] The owned `agent-codewalk` namespace shows the new version for every target.
 - [ ] The logo, product figure, README, links, changelog, and license render correctly.
 - [ ] Searching **Agent CodeWalk** finds the extension in a clean VSCodium profile.
 - [ ] VSCodium installs `agent-codewalk.agent-codewalk` from Open VSX.

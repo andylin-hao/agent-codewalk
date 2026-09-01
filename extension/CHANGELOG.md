@@ -4,6 +4,20 @@ Notable user-visible changes are listed here. Versions follow the extension mani
 same release artifacts are published to the Visual Studio Marketplace, Open VSX, and
 GitHub Releases.
 
+## Unreleased
+
+- Add a `linux-arm64` package. ARM Linux had no build at all, and installing any other
+  package left a companion binary that could not execute. It is cross-compiled on an x64
+  runner rather than built on an ARM one, so the release cannot stall waiting for a runner
+  to become available.
+- Add `agent-codewalk-universal.vsix` to the GitHub release. It carries every companion
+  build and picks the one matching the machine at setup, which suits staging a single file
+  for mixed machines. It is roughly three times the download of a platform package, so the
+  registries keep receiving platform-specific packages: both stores already serve the
+  right one automatically.
+- Say which platform has no build. Setup previously reported a missing file, which reads
+  as a broken install rather than as a platform nobody has published for.
+
 ## 0.7.5
 
 - Replace the Visual Studio Marketplace version badge. shields.io retired that whole

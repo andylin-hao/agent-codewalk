@@ -92,9 +92,15 @@ the package matching the machine that runs the extension host:
 | Platform | Release asset |
 | --- | --- |
 | Linux x64, including most Remote SSH hosts | `agent-codewalk-linux-x64.vsix` |
+| Linux arm64 | `agent-codewalk-linux-arm64.vsix` |
 | Windows x64 | `agent-codewalk-win32-x64.vsix` |
 | macOS Intel | `agent-codewalk-darwin-x64.vsix` |
 | macOS Apple silicon | `agent-codewalk-darwin-arm64.vsix` |
+| Any of the above | `agent-codewalk-universal.vsix` |
+
+`agent-codewalk-universal.vsix` carries every companion build and picks the one matching
+the machine at setup. It is roughly three times the download of a platform package, so
+prefer the specific one unless you are staging a single file for mixed machines.
 
 Install the downloaded file from **Extensions: Install from VSIX...** or from a terminal:
 
